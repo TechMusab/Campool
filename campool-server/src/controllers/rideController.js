@@ -18,7 +18,7 @@ function isFutureDate(dateString, timeString) {
 
 async function createRide(req, res) {
 	try {
-		const { startPoint, destination, date, time, seats, costPerSeat } = req.body || {};
+		const { startPoint, destination, date, time, seats, costPerSeat, distanceKm } = req.body || {};
 		if (!startPoint || !destination || !date || !time) {
 			return res.status(400).json({ error: 'startPoint, destination, date and time are required' });
 		}
@@ -27,8 +27,10 @@ async function createRide(req, res) {
 		}
 		const seatsNum = Number(seats);
 		const costNum = Number(costPerSeat);
+		const distanceNum = Number(distanceKm);
 		if (!(seatsNum > 0)) return res.status(400).json({ error: 'Seats must be > 0' });
 		if (!(costNum > 0)) return res.status(400).json({ error: 'Cost per seat must be > 0' });
+		if (!(distanceNum > 0)) return res.status(400).json({ error: 'distanceKm must be > 0' });
 
 		const ride = await Ride.create({
 			driverId: req.userId,
@@ -38,9 +40,10 @@ async function createRide(req, res) {
 			time,
 			availableSeats: seatsNum,
 			costPerSeat: costNum,
+			distanceKm: distanceNum,
 		});
 
-		const populated = await ride.populate({ path: 'driverId', select: 'name rating' });
+		const populated = await ride.populate({ path: 'driverId', select: 'name avgRating' });
 		return res.status(201).json({ success: true, ride: populated });
 	} catch (err) {
 		console.error('createRide error', err);
@@ -66,7 +69,6 @@ async function searchRides(req, res) {
 				query.date = { $gte: after };
 			}
 		} else {
-			// default to future rides
 			query.date = { $gte: new Date() };
 		}
 
@@ -74,15 +76,37 @@ async function searchRides(req, res) {
 			.sort({ date: 1 })
 			.skip((pageNum - 1) * limitNum)
 			.limit(limitNum)
-			.populate({ path: 'driverId', select: 'name rating' })
-			.exec();
+			.populate({ path: 'driverId', select: 'name avgRating' })
+			.lean();
+
+		const items = rides.map((r) => {
+			const totalCost = (r.costPerSeat || 0) * (r.availableSeats || 0);
+			const numPassengers = Array.isArray(r.passengers) ? r.passengers.length : 0;
+			const perPassengerCost = numPassengers > 0 ? totalCost / numPassengers : r.costPerSeat;
+			return { ...r, totalCost, perPassengerCost };
+		});
 
 		const total = await Ride.countDocuments(query);
-		return res.json({ items: rides, page: pageNum, limit: limitNum, total });
+		return res.json({ items, page: pageNum, limit: limitNum, total });
 	} catch (err) {
 		console.error('searchRides error', err);
 		return res.status(500).json({ error: 'Internal server error' });
 	}
 }
 
-module.exports = { createRide, searchRides }; 
+async function getRideById(req, res) {
+	try {
+		const { id } = req.params;
+		const ride = await Ride.findById(id).populate({ path: 'driverId', select: 'name avgRating' }).lean();
+		if (!ride) return res.status(404).json({ error: 'Ride not found' });
+		const totalCost = (ride.costPerSeat || 0) * (ride.availableSeats || 0);
+		const numPassengers = Array.isArray(ride.passengers) ? ride.passengers.length : 0;
+		const perPassengerCost = numPassengers > 0 ? totalCost / numPassengers : ride.costPerSeat;
+		return res.json({ ...ride, totalCost, perPassengerCost });
+	} catch (err) {
+		console.error('getRideById error', err);
+		return res.status(500).json({ error: 'Internal server error' });
+	}
+}
+
+module.exports = { createRide, searchRides, getRideById }; 

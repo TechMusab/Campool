@@ -18,6 +18,9 @@ const rideSchema = new mongoose.Schema(
 		time: { type: String, required: true },
 		availableSeats: { type: Number, required: true },
 		costPerSeat: { type: Number, required: true },
+		passengers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
+		distanceKm: { type: Number, required: true },
+		co2Saved: { type: Number, default: 0 },
 	},
 	{ timestamps: true }
 );
