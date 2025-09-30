@@ -1,0 +1,30 @@
+# Node / Expo / React Native
+node_modules/
+.expo/
+.expo-shared/
+dist/
+build/
+web-build/
+bundle-
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*
+campool-server/.env
+
+# Metro / cache
+.expo/web/cache/
+.expo/cache/
+.expo/*.json
+
+# Android/iOS native (if ejected)
+android/
+ios/ 
