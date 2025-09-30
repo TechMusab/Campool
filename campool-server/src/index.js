@@ -3,18 +3,16 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const { Server } = require('socket.io');
 
 const authRoutes = require('./routes/authRoutes');
+const rideRoutes = require('./routes/rideRoutes');
+const chatRoutes = require('./routes/chat');
+const ratingRoutes = require('./routes/ratingRoutes');
+const { signup, login } = require('./controllers/authController');
+const { setupChatSocket } = require('./socket/chatSocket');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-	cors: {
-		origin: '*',
-		methods: ['GET', 'POST']
-	}
-});
 
 app.use(cors());
 app.use(express.json());
@@ -27,16 +25,20 @@ async function start() {
 		await mongoose.connect(MONGO_URI);
 		console.log('Connected to MongoDB');
 
-		io.on('connection', (socket) => {
-			console.log('Socket connected:', socket.id);
-			socket.on('disconnect', () => console.log('Socket disconnected:', socket.id));
-		});
-
+		// REST routes
 		app.use('/api/auth', authRoutes);
+		app.post('/auth/register', signup);
+		app.post('/auth/login', login);
+		app.use('/', rideRoutes);
+		app.use('/', chatRoutes);
+		app.use('/', ratingRoutes);
 
 		app.get('/health', (req, res) => {
 			res.json({ status: 'ok' });
 		});
+
+		// Socket.IO
+		setupChatSocket(server);
 
 		server.listen(PORT, () => {
 			console.log(`Server running on http://localhost:${PORT}`);
