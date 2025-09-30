@@ -1,0 +1,57 @@
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import 'react-native-reanimated';
+import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image, View, ActivityIndicator } from 'react-native';
+
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
+export default function RootLayout() {
+  const colorScheme = useColorScheme();
+  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const stored = await AsyncStorage.getItem('campool_token');
+      setToken(stored);
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  return (
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Stack screenOptions={{ headerTitle: HeaderTitle }}>
+        {token ? (
+          <>
+            <Stack.Screen name="dashboard" options={{ title: 'Dashboard' }} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="login" options={{ title: 'Login' }} />
+            <Stack.Screen name="signup" options={{ title: 'Signup' }} />
+          </>
+        )}
+      </Stack>
+      <StatusBar style="auto" />
+    </ThemeProvider>
+  );
+}
+
+function HeaderTitle() {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Image source={require('@/assets/images/icon.png')} style={{ width: 20, height: 20, borderRadius: 4 }} />
+    </View>
+  );
+}
