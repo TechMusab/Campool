@@ -84,7 +84,7 @@ export default function SignupScreen() {
             </LinearGradient>
           </View>
           <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join your university community</Text>
+          <Text style={styles.subtitle}>Join Campool to start saving money</Text>
         </View>
 
         {/* Form Section */}

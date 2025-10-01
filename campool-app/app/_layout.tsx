@@ -1,4 +1,4 @@
-﻿import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -35,15 +35,15 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{ headerTitle: HeaderTitle }}>
+        <Stack screenOptions={{ headerShown: false }}>
           {token ? (
             <>
-              <Stack.Screen name="dashboard" options={{ title: 'Dashboard' }} />
+              <Stack.Screen name="dashboard" options={{ headerShown: false }} />
             </>
           ) : (
             <>
-              <Stack.Screen name="login" options={{ title: 'Login' }} />
-              <Stack.Screen name="signup" options={{ title: 'Signup' }} />
+              <Stack.Screen name="login" options={{ headerShown: false }} />
+              <Stack.Screen name="signup" options={{ headerShown: false }} />
             </>
           )}
         </Stack>
