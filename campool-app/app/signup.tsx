@@ -5,7 +5,7 @@ import axios from 'axios';
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://localhost:4000';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://192.168.10.17:4000';
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const UNIVERSITY_EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9-]+\.)*(edu|ac)\.[a-zA-Z]{2,}$/;
 
@@ -30,18 +30,31 @@ export default function SignupScreen() {
   }
 
   async function onSubmit() {
+    console.log("=== FRONTEND SIGNUP START ===");
+    console.log("Form data:", { name, email, studentId, passwordLength: password.length });
+    console.log("API endpoint:", `${API_BASE}/api/auth/signup`);
     if (!validate()) return;
     try {
       setLoading(true);
-      await axios.post(`${API_BASE}/auth/register`, {
+      await axios.post(`${API_BASE}/api/auth/signup`, {
         name,
         email,
         password,
         studentId,
       });
-      Alert.alert('Success', 'Account created. Please login.');
+      console.log("? Signup successful!");
+      Alert.alert("Success", "Account created. Please login.");
       router.replace('/login');
     } catch (e: any) {
+      console.log("=== FRONTEND SIGNUP ERROR ===");
+      console.error("Error details:", e);
+      console.error("Error message:", e.message);
+      if (e.response) {
+        console.error("Response status:", e.response.status);
+        console.error("Response data:", e.response.data);
+      } else if (e.request) {
+        console.error("Network error - no response received");
+      }
       const msg = e?.response?.data?.error || 'Signup failed';
       Alert.alert('Error', msg);
     } finally {

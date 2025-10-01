@@ -6,7 +6,7 @@ import axios from 'axios';
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://localhost:4000';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://192.168.10.17:4000';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -26,7 +26,7 @@ export default function LoginScreen() {
     if (!validate()) return;
     try {
       setLoading(true);
-      const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
+      const res = await axios.post(`${API_BASE}/api/auth/login`, { email, password });
       await AsyncStorage.setItem('campool_token', res.data.token);
       router.replace('/dashboard');
     } catch (e: any) {

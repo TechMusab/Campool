@@ -9,7 +9,6 @@ const rideRoutes = require('./routes/rideRoutes');
 const chatRoutes = require('./routes/chat');
 const ratingRoutes = require('./routes/ratingRoutes');
 const statsRoutes = require('./routes/statsRoutes');
-const { signup, login } = require('./controllers/authController');
 const { setupChatSocket } = require('./socket/chatSocket');
 
 const app = express();
@@ -18,7 +17,7 @@ const server = http.createServer(app);
 app.use(cors());
 app.use(express.json());
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/campool';
+const MONGO_URI = process.env.MONGO_URI;
 const PORT = process.env.PORT || 4000;
 
 async function start() {
@@ -28,8 +27,6 @@ async function start() {
 
 		// REST routes
 		app.use('/api/auth', authRoutes);
-		app.post('/auth/register', signup);
-		app.post('/auth/login', login);
 		app.use('/', rideRoutes);
 		app.use('/', chatRoutes);
 		app.use('/', ratingRoutes);
@@ -42,7 +39,7 @@ async function start() {
 		// Socket.IO
 		setupChatSocket(server);
 
-		server.listen(PORT, () => {
+		server.listen(PORT, "0.0.0.0", () => {
 			console.log(`Server running on http://localhost:${PORT}`);
 		});
 	} catch (error) {

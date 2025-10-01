@@ -1,4 +1,4 @@
-﻿import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -24,32 +24,28 @@ export default function RootLayout() {
 
   if (loading) {
     return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator />
-        </View>
-      </GestureHandlerRootView>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator />
+      </View>
     );
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{ headerTitle: HeaderTitle }}>
-          {token ? (
-            <>
-              <Stack.Screen name="dashboard" options={{ title: 'Dashboard' }} />
-            </>
-          ) : (
-            <>
-              <Stack.Screen name="login" options={{ title: 'Login' }} />
-              <Stack.Screen name="signup" options={{ title: 'Signup' }} />
-            </>
-          )}
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </GestureHandlerRootView>
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Stack screenOptions={{ headerTitle: HeaderTitle }}>
+        {token ? (
+          <>
+            <Stack.Screen name="dashboard" options={{ title: 'Dashboard' }} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="login" options={{ title: 'Login' }} />
+            <Stack.Screen name="signup" options={{ title: 'Signup' }} />
+          </>
+        )}
+      </Stack>
+      <StatusBar style="auto" />
+    </ThemeProvider>
   );
 }
 
