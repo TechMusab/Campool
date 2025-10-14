@@ -12,13 +12,13 @@ console.log("Request body:", JSON.stringify(req.body, null, 2));
 console.log("Request headers:", JSON.stringify(req.headers, null, 2));
 	try {
 console.log("Step 1: Validating required fields...");
-		const missing = requireFields(req.body, ['name', 'email', 'password', 'studentId']);
+		const missing = requireFields(req.body, ['name', 'email', 'password', 'studentId', 'whatsappNumber']);
 		if (missing) {
 console.log("? Missing field:", missing);
 			return res.status(400).json({ error: `Missing field: ${missing}` });
 		}
 
-		const { name, email, password, studentId } = req.body;
+		const { name, email, password, studentId, whatsappNumber } = req.body;
 console.log("Extracted data:", { name, email, studentId, passwordLength: password?.length });
 		if (!isUniversityEmail(email)) {
 console.log("? Invalid university email:", email);
@@ -38,7 +38,7 @@ console.log("Existing student ID check result:", existingStudent ? "Found existi
 		}
 
 		const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-		const user = await User.create({ name, email: email.toLowerCase(), passwordHash, studentId });
+		const user = await User.create({ name, email: email.toLowerCase(), passwordHash, studentId, whatsappNumber });
 console.log("? User created successfully:", {
 id: user._id,
 name: user.name,
@@ -82,7 +82,7 @@ console.log("? Missing field:", missing);
 		}
 
 		const token = jwt.sign({ sub: String(user._id), email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-		return res.json({ token, user: { id: user._id, name: user.name, email: user.email, studentId: user.studentId } });
+		return res.json({ token, user: { id: user._id, name: user.name, email: user.email, studentId: user.studentId, whatsappNumber: user.whatsappNumber } });
 	} catch (error) {
 		console.error('Login error', error);
 		return res.status(500).json({ error: 'Internal server error' });

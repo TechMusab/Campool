@@ -43,7 +43,7 @@ async function createRide(req, res) {
 			distanceKm: distanceNum,
 		});
 
-		const populated = await ride.populate({ path: 'driverId', select: 'name avgRating' });
+		const populated = await ride.populate({ path: 'driverId', select: 'name avgRating whatsappNumber' });
 		return res.status(201).json({ success: true, ride: populated });
 	} catch (err) {
 		console.error('createRide error', err);
@@ -76,7 +76,7 @@ async function searchRides(req, res) {
 			.sort({ date: 1 })
 			.skip((pageNum - 1) * limitNum)
 			.limit(limitNum)
-			.populate({ path: 'driverId', select: 'name avgRating' })
+			.populate({ path: 'driverId', select: 'name avgRating whatsappNumber' })
 			.lean();
 
 		const items = rides.map((r) => {
@@ -97,7 +97,7 @@ async function searchRides(req, res) {
 async function getRideById(req, res) {
 	try {
 		const { id } = req.params;
-		const ride = await Ride.findById(id).populate({ path: 'driverId', select: 'name avgRating' }).lean();
+		const ride = await Ride.findById(id).populate({ path: 'driverId', select: 'name avgRating whatsappNumber' }).lean();
 		if (!ride) return res.status(404).json({ error: 'Ride not found' });
 		const totalCost = (ride.costPerSeat || 0) * (ride.availableSeats || 0);
 		const numPassengers = Array.isArray(ride.passengers) ? ride.passengers.length : 0;

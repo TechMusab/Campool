@@ -4,8 +4,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import Logo from '@/components/Logo';
+import { spacing, borderRadius, fontSize, colors } from '@/constants/spacing';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://192.168.10.17:4000';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://192.168.10.9:4000';
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const UNIVERSITY_EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9-]+\.)*(edu|ac)\.[a-zA-Z]{2,}$/;
 
@@ -14,6 +16,7 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [studentId, setStudentId] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -26,6 +29,8 @@ export default function SignupScreen() {
     if (!password) next.password = 'Password is required';
     else if (!PASSWORD_REGEX.test(password)) next.password = '8+ chars, uppercase, lowercase, number';
     if (!studentId) next.studentId = 'Student ID is required';
+    if (!whatsappNumber) next.whatsappNumber = 'WhatsApp number is required';
+    else if (whatsappNumber.length < 10) next.whatsappNumber = 'Enter valid WhatsApp number';
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -42,6 +47,7 @@ export default function SignupScreen() {
         email,
         password,
         studentId,
+        whatsappNumber,
       });
       console.log("✓ Signup successful!");
       Alert.alert("Success", "Account created. Please login.");
@@ -75,14 +81,8 @@ export default function SignupScreen() {
       >
         {/* Header Section */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <LinearGradient
-              colors={['#2d6a4f', '#1b9aaa']}
-              style={styles.logoGradient}
-            >
-              <Ionicons name="school" size={32} color="#fff" />
-            </LinearGradient>
-          </View>
+          <Logo size="large" showText={true} />
+          <View style={{ height: spacing.md }} />
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Join Campool to start saving money</Text>
         </View>
@@ -163,6 +163,23 @@ export default function SignupScreen() {
             {errors.studentId ? <Text style={styles.error}>{errors.studentId}</Text> : null}
           </View>
 
+          {/* WhatsApp Number Input */}
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>WhatsApp Number</Text>
+            <View style={[styles.inputRow, errors.whatsappNumber && styles.inputError]}>
+              <Ionicons name="logo-whatsapp" size={20} color="#52796f" style={styles.icon} />
+              <TextInput 
+                placeholder="03001234567" 
+                placeholderTextColor="#a8b5b2"
+                keyboardType="phone-pad"
+                value={whatsappNumber} 
+                onChangeText={setWhatsappNumber} 
+                style={styles.input}
+              />
+            </View>
+            {errors.whatsappNumber ? <Text style={styles.error}>{errors.whatsappNumber}</Text> : null}
+          </View>
+
           {/* Submit Button */}
           <TouchableOpacity 
             onPress={onSubmit} 
@@ -203,65 +220,50 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#f8fffe' 
+    backgroundColor: colors.background,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.huge + spacing.lg,
+    paddingBottom: spacing.xl,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
-  },
-  logoContainer: {
-    marginBottom: 20,
-  },
-  logoGradient: {
-    width: 70,
-    height: 70,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#2d6a4f',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    marginBottom: spacing.xl + spacing.xxl,
   },
   title: {
-    fontSize: 32,
+    fontSize: fontSize.heading + 4,
     fontWeight: '700',
-    color: '#1b4332',
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#52796f',
+    fontSize: fontSize.lg,
+    color: colors.textSecondary,
     fontWeight: '400',
   },
   formContainer: {
-    gap: 20,
+    gap: spacing.xl,
   },
   inputWrapper: {
-    gap: 8,
+    gap: spacing.sm,
   },
   label: {
-    fontSize: 14,
+    fontSize: fontSize.md,
     fontWeight: '600',
-    color: '#2d6a4f',
-    marginLeft: 4,
+    color: colors.primary,
+    marginLeft: spacing.xs,
   },
   inputRow: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     borderWidth: 1.5, 
-    borderColor: '#d8e9e4', 
-    borderRadius: 12, 
-    paddingHorizontal: 16, 
-    paddingVertical: 14, 
-    backgroundColor: '#ffffff',
+    borderColor: colors.border, 
+    borderRadius: borderRadius.md, 
+    paddingHorizontal: spacing.lg, 
+    paddingVertical: spacing.md + 2, 
+    backgroundColor: colors.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -269,61 +271,61 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   inputError: {
-    borderColor: '#ef233c',
-    backgroundColor: '#fff5f5',
+    borderColor: colors.error,
+    backgroundColor: colors.errorLight,
   },
   icon: { 
-    marginRight: 12 
+    marginRight: spacing.md,
   },
   input: { 
     flex: 1,
-    fontSize: 16,
-    color: '#1b4332',
+    fontSize: fontSize.lg,
+    color: colors.text,
   },
   error: { 
-    color: '#ef233c', 
-    fontSize: 13, 
-    marginLeft: 4,
-    marginTop: -4,
+    color: colors.error, 
+    fontSize: fontSize.sm, 
+    marginLeft: spacing.xs,
+    marginTop: -spacing.xs,
   },
   buttonWrapper: {
-    marginTop: 12,
+    marginTop: spacing.md,
     width: '100%',
   },
   button: { 
-    paddingVertical: 16, 
-    borderRadius: 12, 
+    paddingVertical: spacing.lg, 
+    borderRadius: borderRadius.md, 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    shadowColor: '#2d6a4f',
+    gap: spacing.sm,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
   },
   buttonText: { 
-    color: '#ffffff', 
+    color: colors.white, 
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: fontSize.lg,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   footerText: {
-    fontSize: 15,
-    color: '#52796f',
+    fontSize: fontSize.base,
+    color: colors.textSecondary,
   },
   link: {
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   linkText: {
-    fontSize: 15,
-    color: '#1b9aaa',
+    fontSize: fontSize.base,
+    color: colors.secondary,
     fontWeight: '600',
   },
 });

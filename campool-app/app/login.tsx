@@ -5,8 +5,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import Logo from '@/components/Logo';
+import { spacing, borderRadius, fontSize, colors } from '@/constants/spacing';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://192.168.10.17:4000';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://192.168.10.9:4000';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -50,14 +52,8 @@ export default function LoginScreen() {
       >
         {/* Header Section */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <LinearGradient
-              colors={['#2d6a4f', '#1b9aaa']}
-              style={styles.logoGradient}
-            >
-              <Ionicons name="car-sport" size={36} color="#fff" />
-            </LinearGradient>
-          </View>
+          <Logo size="large" showText={true} />
+          <View style={{ height: spacing.md }} />
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Login to continue your journey</Text>
         </View>
@@ -171,49 +167,34 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#f8fffe' 
+    backgroundColor: colors.background,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 40,
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.huge + spacing.xxxl,
+    paddingBottom: spacing.xl,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
-  },
-  logoContainer: {
-    marginBottom: 24,
-  },
-  logoGradient: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#2d6a4f',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
+    marginBottom: spacing.huge,
   },
   title: {
-    fontSize: 34,
+    fontSize: fontSize.hero,
     fontWeight: '700',
-    color: '#1b4332',
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#52796f',
+    fontSize: fontSize.lg,
+    color: colors.textSecondary,
     fontWeight: '400',
   },
   formContainer: {
-    gap: 24,
+    gap: spacing.xxl,
   },
   inputWrapper: {
-    gap: 8,
+    gap: spacing.sm,
   },
   labelRow: {
     flexDirection: 'row',
@@ -221,25 +202,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    fontSize: 14,
+    fontSize: fontSize.md,
     fontWeight: '600',
-    color: '#2d6a4f',
-    marginLeft: 4,
+    color: colors.primary,
+    marginLeft: spacing.xs,
   },
   forgotText: {
-    fontSize: 13,
-    color: '#1b9aaa',
+    fontSize: fontSize.sm,
+    color: colors.secondary,
     fontWeight: '600',
   },
   inputRow: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     borderWidth: 1.5, 
-    borderColor: '#d8e9e4', 
-    borderRadius: 12, 
-    paddingHorizontal: 16, 
-    paddingVertical: 14, 
-    backgroundColor: '#ffffff',
+    borderColor: colors.border, 
+    borderRadius: borderRadius.md, 
+    paddingHorizontal: spacing.lg, 
+    paddingVertical: spacing.md + 2, 
+    backgroundColor: colors.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -247,73 +228,73 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   inputError: {
-    borderColor: '#ef233c',
-    backgroundColor: '#fff5f5',
+    borderColor: colors.error,
+    backgroundColor: colors.errorLight,
   },
   icon: { 
-    marginRight: 12 
+    marginRight: spacing.md,
   },
   input: { 
     flex: 1,
-    fontSize: 16,
-    color: '#1b4332',
+    fontSize: fontSize.lg,
+    color: colors.text,
   },
   error: { 
-    color: '#ef233c', 
-    fontSize: 13, 
-    marginLeft: 4,
-    marginTop: -4,
+    color: colors.error, 
+    fontSize: fontSize.sm, 
+    marginLeft: spacing.xs,
+    marginTop: -spacing.xs,
   },
   buttonWrapper: {
-    marginTop: 8,
+    marginTop: spacing.sm,
     width: '100%',
   },
   button: { 
-    paddingVertical: 16, 
-    borderRadius: 12, 
+    paddingVertical: spacing.lg, 
+    borderRadius: borderRadius.md, 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    shadowColor: '#2d6a4f',
+    gap: spacing.sm,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
   },
   buttonText: { 
-    color: '#ffffff', 
+    color: colors.white, 
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: fontSize.lg,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: spacing.sm,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#d8e9e4',
+    backgroundColor: colors.border,
   },
   dividerText: {
-    marginHorizontal: 16,
-    fontSize: 14,
-    color: '#84a98c',
+    marginHorizontal: spacing.lg,
+    fontSize: fontSize.md,
+    color: colors.textLight,
     fontWeight: '500',
   },
   socialContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 16,
+    gap: spacing.lg,
   },
   socialButton: {
     width: 56,
     height: 56,
-    borderRadius: 14,
-    backgroundColor: '#ffffff',
+    borderRadius: borderRadius.md + 2,
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: '#d8e9e4',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -326,18 +307,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   footerText: {
-    fontSize: 15,
-    color: '#52796f',
+    fontSize: fontSize.base,
+    color: colors.textSecondary,
   },
   link: {
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   linkText: {
-    fontSize: 15,
-    color: '#1b9aaa',
+    fontSize: fontSize.base,
+    color: colors.secondary,
     fontWeight: '600',
   },
 });

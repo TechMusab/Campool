@@ -1,5 +1,6 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 export type Ride = {
   _id: string;
@@ -11,14 +12,28 @@ export type Ride = {
   costPerSeat: number;
   totalCost?: number;
   perPassengerCost?: number;
-  driverId?: { name?: string; rating?: number } | string;
+  driverId?: { name?: string; avgRating?: number; whatsappNumber?: string } | string;
 };
 
 export default function RideCard({ ride, onJoin }: { ride: Ride; onJoin?: (ride: Ride) => void }) {
   const driverName = typeof ride.driverId === 'object' && ride.driverId ? ride.driverId.name : 'Driver';
   const rating = typeof ride.driverId === 'object' && ride.driverId ? (ride.driverId as any).avgRating ?? 4.8 : 4.8;
+  const whatsappNumber = typeof ride.driverId === 'object' && ride.driverId ? ride.driverId.whatsappNumber : null;
   const perPassenger = ride.perPassengerCost ?? ride.costPerSeat;
   const total = ride.totalCost ?? (ride.costPerSeat * ride.availableSeats);
+  
+  const openWhatsApp = () => {
+    if (!whatsappNumber) {
+      Alert.alert('Error', 'WhatsApp number not available');
+      return;
+    }
+    const message = encodeURIComponent(`Hi! I'm interested in your ride from ${ride.startPoint} to ${ride.destination} on ${new Date(ride.date).toLocaleDateString()}`);
+    const url = `whatsapp://send?phone=${whatsappNumber}&text=${message}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'WhatsApp is not installed or number is invalid');
+    });
+  };
+
   return (
     <View style={styles.card}>
       <Text style={styles.title}>{driverName} • ⭐ {Number(rating).toFixed(1)}</Text>
@@ -29,11 +44,24 @@ export default function RideCard({ ride, onJoin }: { ride: Ride; onJoin?: (ride:
       <Text style={styles.costHighlight}>Cost Per Passenger: Rs.{perPassenger.toFixed(2)}</Text>
       <Text style={styles.meta}>Total Ride Cost: Rs.{total.toFixed(2)}</Text>
       <View style={{ height: 8 }} />
-      <TouchableOpacity onPress={() => onJoin?.(ride)}>
-        <LinearGradient colors={["#2d6a4f", "#1b9aaa"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.button}>
-          <Text style={styles.buttonText}>Join Ride</Text>
-        </LinearGradient>
-      </TouchableOpacity>
+      
+      {/* Action Buttons Row */}
+      <View style={styles.buttonRow}>
+        <TouchableOpacity onPress={openWhatsApp} style={styles.whatsappButton}>
+          <LinearGradient colors={["#25D366", "#128C7E"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.whatsappGradient}>
+            <Ionicons name="logo-whatsapp" size={18} color="#fff" />
+            <Text style={styles.whatsappText}>Contact</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        {onJoin && (
+          <TouchableOpacity onPress={() => onJoin(ride)} style={styles.joinButton}>
+            <LinearGradient colors={["#2d6a4f", "#1b9aaa"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.button}>
+              <Text style={styles.buttonText}>Join Ride</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -44,6 +72,11 @@ const styles = StyleSheet.create({
   route: { marginTop: 6 },
   meta: { color: '#555', marginTop: 4 },
   costHighlight: { color: '#2d6a4f', fontWeight: '700', marginTop: 4 },
+  buttonRow: { flexDirection: 'row', gap: 8 },
+  whatsappButton: { flex: 1 },
+  whatsappGradient: { paddingVertical: 10, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  whatsappText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  joinButton: { flex: 1 },
   button: { paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
   buttonText: { color: 'white', fontWeight: 'bold' },
 }); 

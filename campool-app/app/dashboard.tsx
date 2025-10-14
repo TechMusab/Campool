@@ -6,6 +6,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fetchStats } from '@/services/statsApi';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 import { Ionicons } from '@expo/vector-icons';
+import Logo from '@/components/Logo';
+import { spacing, borderRadius, fontSize, colors } from '@/constants/spacing';
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -45,13 +47,16 @@ export default function Dashboard() {
       
       {/* Header with Gradient */}
       <LinearGradient
-        colors={['#2d6a4f', '#1b9aaa']}
+        colors={[colors.primary, colors.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
         <View style={styles.headerContent}>
-          <View>
+          <View style={styles.logoWrapper}>
+            <Logo size="small" showText={false} />
+          </View>
+          <View style={{ flex: 1, marginLeft: spacing.md }}>
             <Text style={styles.greeting}>Welcome Back</Text>
             <Text style={styles.headerTitle}>Your Journey Dashboard</Text>
           </View>
@@ -238,15 +243,15 @@ function StatCard({ label, value, icon, colors }: { label: string; value: string
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: '#f8fffe',
+    backgroundColor: colors.background,
   },
   header: {
-    paddingTop: 60,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#2d6a4f',
+    paddingTop: spacing.huge + spacing.lg,
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xxl,
+    borderBottomLeftRadius: borderRadius.lg + 8,
+    borderBottomRightRadius: borderRadius.lg + 8,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -254,24 +259,26 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
+  logoWrapper: {
+    marginRight: spacing.sm,
+  },
   greeting: {
-    fontSize: 14,
+    fontSize: fontSize.md,
     color: 'rgba(255,255,255,0.9)',
     fontWeight: '500',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: fontSize.heading - 2,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.white,
   },
   logoutButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -280,31 +287,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    padding: 24,
-    paddingTop: 20,
+    padding: spacing.xxl,
+    paddingTop: spacing.xl,
   },
   loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingVertical: spacing.huge + spacing.lg,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 15,
-    color: '#52796f',
+    marginTop: spacing.md,
+    fontSize: fontSize.base,
+    color: colors.textSecondary,
   },
   statsSection: {
-    marginBottom: 24,
+    marginBottom: spacing.xxl,
   },
   cardsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
   statCard: {
     flex: 1,
-    padding: 20,
-    borderRadius: 16,
+    padding: spacing.xl,
+    borderRadius: borderRadius.lg,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -313,27 +320,27 @@ const styles = StyleSheet.create({
     minHeight: 120,
   },
   statIconContainer: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   statLabel: {
     color: 'rgba(255,255,255,0.9)',
-    fontSize: 13,
+    fontSize: fontSize.sm,
     fontWeight: '500',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   statValue: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: '700',
-    fontSize: 24,
+    fontSize: fontSize.title,
   },
   chartSection: {
-    gap: 20,
-    marginBottom: 24,
+    gap: spacing.xl,
+    marginBottom: spacing.xxl,
   },
   chartCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -343,27 +350,27 @@ const styles = StyleSheet.create({
   chartHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
   chartTitle: {
-    fontSize: 16,
+    fontSize: fontSize.lg,
     fontWeight: '700',
-    color: '#1b4332',
+    color: colors.text,
   },
   chart: {
-    borderRadius: 8,
-    marginVertical: 8,
+    borderRadius: borderRadius.sm,
+    marginVertical: spacing.sm,
   },
   actionsSection: {
-    gap: 12,
-    marginBottom: 24,
+    gap: spacing.md,
+    marginBottom: spacing.xxl,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: fontSize.xl,
     fontWeight: '700',
-    color: '#1b4332',
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
   actionButtonWrapper: {
     width: '100%',
@@ -372,10 +379,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    shadowColor: '#2d6a4f',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.md + 2,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -383,9 +390,9 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     flex: 1,
-    color: '#fff',
+    color: colors.white,
     fontWeight: '700',
-    fontSize: 16,
-    marginLeft: 12,
+    fontSize: fontSize.lg,
+    marginLeft: spacing.md,
   },
 });
