@@ -77,7 +77,8 @@ app.get('/', (req, res) => {
 	res.json({ 
 		message: 'Campool API Server', 
 		status: 'running',
-		timestamp: new Date().toISOString()
+		timestamp: new Date().toISOString(),
+		version: '2.0'
 	});
 });
 

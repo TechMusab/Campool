@@ -4,6 +4,6 @@
 foreach ( in ) {
     if (Test-Path ) {
         Write-Host "Updating "
-        (Get-Content ) -replace 'http://localhost:4000', 'http://192.168.10.17:4000' | Set-Content 
+        (Get-Content ) -replace 'http://localhost:4000', 'https://campool-l1un.vercel.app' | Set-Content 
     }
 }

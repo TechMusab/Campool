@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import rideCoordinationService from '@/services/rideCoordinationService';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://192.168.10.10:4000';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-l1un.vercel.app';
 const { width } = Dimensions.get('window');
 
 interface RideStats {

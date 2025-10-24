@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Logo from '@/components/Logo';
 import { spacing, borderRadius, fontSize, colors } from '@/constants/spacing';
 
-const API_BASE = 'http://192.168.10.10:4000';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-l1un.vercel.app';
 
 export default function PostRideScreen() {
   const [startPoint, setStartPoint] = useState('');
