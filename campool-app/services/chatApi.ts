@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://localhost:4000';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://192.168.10.10:4000';
 
 export async function fetchMessages(token: string, rideId: string, params?: { page?: number; limit?: number; before?: string }) {
   const res = await axios.get(`${API_BASE}/chat/${rideId}/messages`, {

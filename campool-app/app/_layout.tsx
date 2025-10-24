@@ -8,11 +8,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, View, ActivityIndicator } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
+  
+  // Initialize notifications
+  useNotifications();
 
   useEffect(() => {
     (async () => {

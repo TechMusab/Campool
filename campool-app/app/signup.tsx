@@ -6,8 +6,9 @@ import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/components/Logo';
 import { spacing, borderRadius, fontSize, colors } from '@/constants/spacing';
+import { useEffect } from 'react';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://192.168.10.9:4000';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://192.168.10.10:4000';
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const UNIVERSITY_EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9-]+\.)*(edu|ac)\.[a-zA-Z]{2,}$/;
 
@@ -20,6 +21,23 @@ export default function SignupScreen() {
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
+
+  // Timer effect for OTP countdown
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [otpTimer]);
 
   function validate() {
     const next: { [k: string]: string } = {};
@@ -31,8 +49,34 @@ export default function SignupScreen() {
     if (!studentId) next.studentId = 'Student ID is required';
     if (!whatsappNumber) next.whatsappNumber = 'WhatsApp number is required';
     else if (whatsappNumber.length < 10) next.whatsappNumber = 'Enter valid WhatsApp number';
+    if (!otp) next.otp = 'OTP is required';
+    else if (otp.length !== 6) next.otp = 'OTP must be 6 digits';
     setErrors(next);
     return Object.keys(next).length === 0;
+  }
+
+  async function requestOtp() {
+    if (!email || !UNIVERSITY_EMAIL_REGEX.test(email)) {
+      Alert.alert('Error', 'Please enter a valid university email first');
+      return;
+    }
+    
+    try {
+      setOtpLoading(true);
+      await axios.post(`${API_BASE}/api/auth/request-otp`, { email });
+      setOtpSent(true);
+      setOtpTimer(120); // 2 minutes in seconds
+      Alert.alert('OTP Sent', 'Check your email for the verification code. It expires in 2 minutes.');
+    } catch (e: any) {
+      const msg = e?.response?.data?.error || 'Failed to send OTP';
+      Alert.alert('Error', msg);
+    } finally {
+      setOtpLoading(false);
+    }
+  }
+
+  async function resendOtp() {
+    await requestOtp();
   }
 
   async function onSubmit() {
@@ -48,9 +92,10 @@ export default function SignupScreen() {
         password,
         studentId,
         whatsappNumber,
+        otp,
       });
       console.log("✓ Signup successful!");
-      Alert.alert("Success", "Account created. Please login.");
+      Alert.alert("Success", "Account created successfully! Please login.");
       router.replace('/login');
     } catch (e: any) {
       console.log("=== FRONTEND SIGNUP ERROR ===");
@@ -163,46 +208,101 @@ export default function SignupScreen() {
             {errors.studentId ? <Text style={styles.error}>{errors.studentId}</Text> : null}
           </View>
 
-          {/* WhatsApp Number Input */}
-          <View style={styles.inputWrapper}>
-            <Text style={styles.label}>WhatsApp Number</Text>
-            <View style={[styles.inputRow, errors.whatsappNumber && styles.inputError]}>
-              <Ionicons name="logo-whatsapp" size={20} color="#52796f" style={styles.icon} />
-              <TextInput 
-                placeholder="03001234567" 
-                placeholderTextColor="#a8b5b2"
-                keyboardType="phone-pad"
-                value={whatsappNumber} 
-                onChangeText={setWhatsappNumber} 
-                style={styles.input}
-              />
-            </View>
-            {errors.whatsappNumber ? <Text style={styles.error}>{errors.whatsappNumber}</Text> : null}
-          </View>
+           {/* WhatsApp Number Input */}
+           <View style={styles.inputWrapper}>
+             <Text style={styles.label}>WhatsApp Number</Text>
+             <View style={[styles.inputRow, errors.whatsappNumber && styles.inputError]}>
+               <Ionicons name="logo-whatsapp" size={20} color="#52796f" style={styles.icon} />
+               <TextInput 
+                 placeholder="03001234567" 
+                 placeholderTextColor="#a8b5b2"
+                 keyboardType="phone-pad"
+                 value={whatsappNumber} 
+                 onChangeText={setWhatsappNumber} 
+                 style={styles.input}
+               />
+             </View>
+             {errors.whatsappNumber ? <Text style={styles.error}>{errors.whatsappNumber}</Text> : null}
+           </View>
 
-          {/* Submit Button */}
-          <TouchableOpacity 
-            onPress={onSubmit} 
-            disabled={loading} 
-            style={styles.buttonWrapper}
-            activeOpacity={0.8}
-          >
-            <LinearGradient 
-              colors={loading ? ["#84a98c", "#84a98c"] : ["#2d6a4f", "#1b9aaa"]} 
-              start={{ x: 0, y: 0 }} 
-              end={{ x: 1, y: 0 }} 
-              style={styles.button}
-            >
-              {loading ? (
-                <Text style={styles.buttonText}>Creating Account...</Text>
-              ) : (
-                <>
-                  <Text style={styles.buttonText}>Create Account</Text>
-                  <Ionicons name="arrow-forward" size={20} color="#fff" />
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
+           {/* OTP Section */}
+           <View style={styles.inputWrapper}>
+             <View style={styles.otpHeader}>
+               <Text style={styles.label}>Email Verification</Text>
+               {!otpSent ? (
+                 <TouchableOpacity 
+                   onPress={requestOtp} 
+                   disabled={otpLoading || !email || !UNIVERSITY_EMAIL_REGEX.test(email)}
+                   style={styles.otpButton}
+                 >
+                   <Text style={styles.otpButtonText}>
+                     {otpLoading ? 'Sending...' : 'Send OTP'}
+                   </Text>
+                 </TouchableOpacity>
+               ) : (
+                 <TouchableOpacity 
+                   onPress={resendOtp} 
+                   disabled={otpLoading || otpTimer > 0}
+                   style={styles.otpButton}
+                 >
+                   <Text style={styles.otpButtonText}>
+                     {otpTimer > 0 ? `Resend in ${otpTimer}s` : 'Resend OTP'}
+                   </Text>
+                 </TouchableOpacity>
+               )}
+             </View>
+             
+             {otpSent && (
+               <View style={[styles.inputRow, errors.otp && styles.inputError]}>
+                 <Ionicons name="mail-outline" size={20} color="#52796f" style={styles.icon} />
+                 <TextInput 
+                   placeholder="Enter 6-digit OTP" 
+                   placeholderTextColor="#a8b5b2"
+                   keyboardType="number-pad"
+                   maxLength={6}
+                   value={otp} 
+                   onChangeText={setOtp} 
+                   style={styles.input}
+                 />
+               </View>
+             )}
+             
+             {otpSent && (
+               <Text style={styles.otpInfo}>
+                 Check your email for the verification code. It expires in 2 minutes.
+               </Text>
+             )}
+             
+             {errors.otp ? <Text style={styles.error}>{errors.otp}</Text> : null}
+           </View>
+
+           {/* Submit Button */}
+           <TouchableOpacity 
+             onPress={onSubmit} 
+             disabled={loading || !otpSent || otp.length !== 6} 
+             style={styles.buttonWrapper}
+             activeOpacity={0.8}
+           >
+             <LinearGradient 
+               colors={loading || !otpSent || otp.length !== 6 ? ["#84a98c", "#84a98c"] : ["#2d6a4f", "#1b9aaa"]} 
+               start={{ x: 0, y: 0 }} 
+               end={{ x: 1, y: 0 }} 
+               style={styles.button}
+             >
+               {loading ? (
+                 <Text style={styles.buttonText}>Creating Account...</Text>
+               ) : !otpSent ? (
+                 <Text style={styles.buttonText}>Send OTP First</Text>
+               ) : otp.length !== 6 ? (
+                 <Text style={styles.buttonText}>Enter 6-digit OTP</Text>
+               ) : (
+                 <>
+                   <Text style={styles.buttonText}>Create Account</Text>
+                   <Ionicons name="arrow-forward" size={20} color="#fff" />
+                 </>
+               )}
+             </LinearGradient>
+           </TouchableOpacity>
 
           {/* Login Link */}
           <View style={styles.footer}>
@@ -323,9 +423,33 @@ const styles = StyleSheet.create({
   link: {
     marginLeft: spacing.xs,
   },
-  linkText: {
-    fontSize: fontSize.base,
-    color: colors.secondary,
-    fontWeight: '600',
-  },
-});
+   linkText: {
+     fontSize: fontSize.base,
+     color: colors.secondary,
+     fontWeight: '600',
+   },
+   otpHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     marginBottom: spacing.sm,
+   },
+   otpButton: {
+     backgroundColor: colors.primary,
+     paddingHorizontal: spacing.md,
+     paddingVertical: spacing.sm,
+     borderRadius: borderRadius.sm,
+   },
+   otpButtonText: {
+     color: colors.white,
+     fontSize: fontSize.sm,
+     fontWeight: '600',
+   },
+   otpInfo: {
+     fontSize: fontSize.sm,
+     color: colors.textSecondary,
+     marginTop: spacing.sm,
+     textAlign: 'center',
+     fontStyle: 'italic',
+   },
+ });

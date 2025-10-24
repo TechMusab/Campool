@@ -9,6 +9,7 @@ const rideRoutes = require('./routes/rideRoutes');
 const chatRoutes = require('./routes/chat');
 const ratingRoutes = require('./routes/ratingRoutes');
 const statsRoutes = require('./routes/statsRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 const { setupChatSocket } = require('./socket/chatSocket');
 
 const app = express();
@@ -31,6 +32,7 @@ async function start() {
 		app.use('/', chatRoutes);
 		app.use('/', ratingRoutes);
 		app.use('/', statsRoutes);
+		app.use('/api/dashboard', dashboardRoutes);
 
 		app.get('/health', (req, res) => {
 			res.json({ status: 'ok' });

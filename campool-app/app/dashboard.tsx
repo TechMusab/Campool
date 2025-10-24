@@ -1,398 +1,437 @@
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Dimensions, ScrollView, StatusBar } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Dimensions,
+  RefreshControl,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { fetchStats } from '@/services/statsApi';
-import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 import { Ionicons } from '@expo/vector-icons';
-import Logo from '@/components/Logo';
-import { spacing, borderRadius, fontSize, colors } from '@/constants/spacing';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import rideCoordinationService from '@/services/rideCoordinationService';
 
-export default function Dashboard() {
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<{ ridesTaken: number; ridesOffered: number; moneySaved: number; co2SavedKg: number } | null>(null);
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'http://192.168.10.10:4000';
+const { width } = Dimensions.get('window');
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const token = await AsyncStorage.getItem('campool_token');
-        const userId = 'me';
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  async function loadStats(userId: string) {
-    const token = await AsyncStorage.getItem('campool_token');
-    if (!token) return;
-    const data = await fetchStats(token, userId);
-    setStats({ ridesTaken: data.ridesTaken, ridesOffered: data.ridesOffered, moneySaved: data.moneySaved, co2SavedKg: data.co2SavedKg });
-  }
-
-  useEffect(() => { loadStats((global as any).campoolUserId || '000000000000000000000000'); }, []);
-
-  async function logout() {
-    await AsyncStorage.removeItem('campool_token');
-    router.replace('/login');
-  }
-
-  const width = Dimensions.get('window').width - 48;
-
-  return (
-    <View style={styles.wrapper}>
-      <StatusBar barStyle="light-content" />
-      
-      {/* Header with Gradient */}
-      <LinearGradient
-        colors={[colors.primary, colors.secondary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <View style={styles.logoWrapper}>
-            <Logo size="small" showText={false} />
-          </View>
-          <View style={{ flex: 1, marginLeft: spacing.md }}>
-            <Text style={styles.greeting}>Welcome Back</Text>
-            <Text style={styles.headerTitle}>Your Journey Dashboard</Text>
-          </View>
-          <TouchableOpacity onPress={logout} style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={24} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        {loading || !stats ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2d6a4f" />
-            <Text style={styles.loadingText}>Loading your stats...</Text>
-          </View>
-        ) : (
-          <>
-            {/* Stats Cards */}
-            <View style={styles.statsSection}>
-              <View style={styles.cardsRow}>
-                <StatCard 
-                  label="Rides Taken" 
-                  value={String(stats.ridesTaken)} 
-                  icon="car-sport"
-                  colors={["#1b9aaa", "#2d6a4f"]} 
-                />
-                <StatCard 
-                  label="Rides Offered" 
-                  value={String(stats.ridesOffered)} 
-                  icon="car"
-                  colors={["#2d6a4f", "#1b9aaa"]} 
-                />
-              </View>
-              <View style={styles.cardsRow}>
-                <StatCard 
-                  label="Money Saved" 
-                  value={`Rs.${stats.moneySaved.toFixed(0)}`} 
-                  icon="wallet"
-                  colors={["#34a0a4", "#168aad"]} 
-                />
-                <StatCard 
-                  label="CO₂ Saved" 
-                  value={`${stats.co2SavedKg.toFixed(1)} kg`} 
-                  icon="leaf"
-                  colors={["#52b788", "#40916c"]} 
-                />
-              </View>
-            </View>
-
-            {/* Charts Section */}
-            <View style={styles.chartSection}>
-              <View style={styles.chartCard}>
-                <View style={styles.chartHeader}>
-                  <Ionicons name="bar-chart" size={20} color="#2d6a4f" />
-                  <Text style={styles.chartTitle}>Rides per Month</Text>
-                </View>
-                <BarChart
-                  width={width - 32}
-                  height={180}
-                  data={{ labels: ['Jan','Feb','Mar','Apr','May','Jun'], datasets: [{ data: [3,2,4,5,3,6] }] }}
-                  chartConfig={{
-                    backgroundGradientFrom: '#ffffff',
-                    backgroundGradientTo: '#ffffff',
-                    color: (opacity = 1) => `rgba(27,154,170,${opacity})`,
-                    labelColor: () => '#52796f',
-                    barPercentage: 0.6,
-                    decimalPlaces: 0,
-                  }}
-                  fromZero
-                  style={styles.chart}
-                  showValuesOnTopOfBars
-                />
-              </View>
-
-              <View style={styles.chartCard}>
-                <View style={styles.chartHeader}>
-                  <Ionicons name="trending-up" size={20} color="#2d6a4f" />
-                  <Text style={styles.chartTitle}>Money Saved Over Time</Text>
-                </View>
-                <LineChart
-                  width={width - 32}
-                  height={180}
-                  data={{ labels: ['Jan','Feb','Mar','Apr','May','Jun'], datasets: [{ data: [200,300,250,400,350,500] }] }}
-                  chartConfig={{
-                    backgroundGradientFrom: '#ffffff',
-                    backgroundGradientTo: '#ffffff',
-                    color: (opacity = 1) => `rgba(45,106,79,${opacity})`,
-                    labelColor: () => '#52796f',
-                    decimalPlaces: 0,
-                  }}
-                  bezier
-                  style={styles.chart}
-                />
-              </View>
-
-              <View style={styles.chartCard}>
-                <View style={styles.chartHeader}>
-                  <Ionicons name="pie-chart" size={20} color="#2d6a4f" />
-                  <Text style={styles.chartTitle}>Environmental Impact</Text>
-                </View>
-                <PieChart
-                  data={[
-                    { name: 'CO₂ Saved', population: stats.co2SavedKg, color: '#2d6a4f', legendFontColor: '#52796f', legendFontSize: 13 },
-                    { name: 'Baseline', population: Math.max(1, 100 - stats.co2SavedKg), color: '#d8e9e4', legendFontColor: '#84a98c', legendFontSize: 13 }
-                  ]}
-                  width={width - 32}
-                  height={180}
-                  chartConfig={{ color: () => '#333' }}
-                  accessor="population"
-                  backgroundColor="transparent"
-                  paddingLeft="15"
-                  center={[10, 0]}
-                  hasLegend
-                />
-              </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.actionsSection}>
-              <Text style={styles.sectionTitle}>Quick Actions</Text>
-              
-              <TouchableOpacity 
-                onPress={() => router.push('/post-ride')} 
-                style={styles.actionButtonWrapper}
-                activeOpacity={0.8}
-              >
-                <LinearGradient 
-                  colors={["#2d6a4f", "#1b9aaa"]} 
-                  start={{ x: 0, y: 0 }} 
-                  end={{ x: 1, y: 0 }} 
-                  style={styles.actionButton}
-                >
-                  <Ionicons name="add-circle-outline" size={24} color="#fff" />
-                  <Text style={styles.actionButtonText}>Post a Ride</Text>
-                  <Ionicons name="arrow-forward" size={20} color="#fff" />
-                </LinearGradient>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                onPress={() => router.push('/search-rides')} 
-                style={styles.actionButtonWrapper}
-                activeOpacity={0.8}
-              >
-                <LinearGradient 
-                  colors={["#1b9aaa", "#34a0a4"]} 
-                  start={{ x: 0, y: 0 }} 
-                  end={{ x: 1, y: 0 }} 
-                  style={styles.actionButton}
-                >
-                  <Ionicons name="search-outline" size={24} color="#fff" />
-                  <Text style={styles.actionButtonText}>Search Rides</Text>
-                  <Ionicons name="arrow-forward" size={20} color="#fff" />
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-      </ScrollView>
-    </View>
-  );
+interface RideStats {
+  totalRides: number;
+  completedRides: number;
+  totalSaved: number;
+  co2Saved: number;
+  avgRating: number;
+  totalEarnings?: number; // For drivers
 }
 
-function StatCard({ label, value, icon, colors }: { label: string; value: string; icon: any; colors: string[] }) {
-  return (
-    <LinearGradient 
-      colors={colors} 
-      start={{ x: 0, y: 0 }} 
-      end={{ x: 1, y: 1 }} 
-      style={styles.statCard}
+interface RecentRide {
+  id: string;
+  startPoint: string;
+  destination: string;
+  date: string;
+  status: string;
+  cost: number;
+  rating?: number;
+}
+
+export default function DashboardScreen() {
+  const router = useRouter();
+  const [stats, setStats] = useState<RideStats>({
+    totalRides: 0,
+    completedRides: 0,
+    totalSaved: 0,
+    co2Saved: 0,
+    avgRating: 0,
+  });
+  const [recentRides, setRecentRides] = useState<RecentRide[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [userType, setUserType] = useState<'passenger' | 'driver'>('passenger');
+
+  useEffect(() => {
+    loadDashboardData();
+    rideCoordinationService.loadFromStorage();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+    const token = await AsyncStorage.getItem('campool_token');
+    if (!token) return;
+
+      // Load user stats
+      const statsResponse = await axios.get(`${API_BASE}/stats/dashboard`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setStats(statsResponse.data);
+
+      // Load recent rides
+      const ridesResponse = await axios.get(`${API_BASE}/rides/recent`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setRecentRides(ridesResponse.data);
+
+      // Determine user type
+      const userResponse = await axios.get(`${API_BASE}/users/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUserType(userResponse.data.isDriver ? 'driver' : 'passenger');
+
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadDashboardData();
+    setRefreshing(false);
+  };
+
+  const StatCard = ({ title, value, icon, color, subtitle }: {
+    title: string;
+    value: string | number;
+    icon: string;
+    color: string[];
+    subtitle?: string;
+  }) => (
+    <View style={styles.statCard}>
+      <LinearGradient colors={color} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGradient}>
+        <Ionicons name={icon as any} size={24} color="white" />
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statTitle}>{title}</Text>
+        {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
+      </LinearGradient>
+    </View>
+  );
+
+  const RideCard = ({ ride }: { ride: RecentRide }) => (
+    <TouchableOpacity
+      style={styles.rideCard}
+      onPress={() => router.push(`/chat/${ride.id}`)}
     >
-      <View style={styles.statIconContainer}>
-        <Ionicons name={icon} size={24} color="rgba(255,255,255,0.9)" />
+      <View style={styles.rideHeader}>
+        <Text style={styles.rideRoute}>{ride.startPoint} → {ride.destination}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(ride.status) }]}>
+          <Text style={styles.statusText}>{ride.status}</Text>
+        </View>
+          </View>
+      <View style={styles.rideDetails}>
+        <Text style={styles.rideDate}>{new Date(ride.date).toLocaleDateString()}</Text>
+        <Text style={styles.rideCost}>${ride.cost}</Text>
+          </View>
+      {ride.rating && (
+        <View style={styles.ratingContainer}>
+          <Ionicons name="star" size={16} color="#fbbf24" />
+          <Text style={styles.ratingText}>{ride.rating}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'completed': return '#10b981';
+      case 'confirmed': return '#3b82f6';
+      case 'pending': return '#f59e0b';
+      case 'cancelled': return '#ef4444';
+      default: return '#6b7280';
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Loading dashboard...</Text>
       </View>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </LinearGradient>
+    );
+  }
+
+  return (
+      <ScrollView 
+      style={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Dashboard</Text>
+        <Text style={styles.headerSubtitle}>
+          {userType === 'driver' ? 'Driver Overview' : 'Passenger Overview'}
+        </Text>
+          </View>
+
+      {/* Stats Grid */}
+      <View style={styles.statsGrid}>
+                <StatCard 
+          title="Total Rides"
+          value={stats.totalRides}
+          icon="car-outline"
+          color={['#3b82f6', '#1d4ed8']}
+                />
+                <StatCard 
+          title="Completed"
+          value={stats.completedRides}
+          icon="checkmark-circle-outline"
+          color={['#10b981', '#059669']}
+        />
+                <StatCard 
+          title={userType === 'driver' ? 'Earnings' : 'Saved'}
+          value={`$${stats.totalSaved}`}
+          icon={userType === 'driver' ? 'cash-outline' : 'wallet-outline'}
+          color={['#f59e0b', '#d97706']}
+                />
+                <StatCard 
+          title="CO₂ Saved"
+          value={`${stats.co2Saved}kg`}
+          icon="leaf-outline"
+          color={['#22c55e', '#16a34a']}
+          subtitle="Environmental Impact"
+                />
+              </View>
+
+      {/* Quick Actions */}
+      <View style={styles.quickActionsSection}>
+              <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.quickActionsGrid}>
+              <TouchableOpacity 
+            style={styles.quickAction}
+                onPress={() => router.push('/post-ride')} 
+          >
+            <Ionicons name="add-circle-outline" size={32} color="#2d6a4f" />
+            <Text style={styles.quickActionText}>Post Ride</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() => router.push('/search-rides')}
+          >
+            <Ionicons name="search-outline" size={32} color="#2d6a4f" />
+            <Text style={styles.quickActionText}>Find Ride</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+            style={styles.quickAction}
+            onPress={() => router.push('/profile')}
+          >
+            <Ionicons name="person-outline" size={32} color="#2d6a4f" />
+            <Text style={styles.quickActionText}>Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() => router.push('/settings')}
+          >
+            <Ionicons name="settings-outline" size={32} color="#2d6a4f" />
+            <Text style={styles.quickActionText}>Settings</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Recent Rides */}
+      <View style={styles.recentRidesSection}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Recent Rides</Text>
+          <TouchableOpacity onPress={() => router.push('/ride-history')}>
+            <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
+        
+        {recentRides.length > 0 ? (
+          recentRides.map((ride) => (
+            <RideCard key={ride.id} ride={ride} />
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="car-outline" size={48} color="#9ca3af" />
+            <Text style={styles.emptyStateText}>No rides yet</Text>
+            <Text style={styles.emptyStateSubtext}>
+              {userType === 'driver' ? 'Post your first ride!' : 'Find your first ride!'}
+            </Text>
+          </View>
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    paddingTop: spacing.huge + spacing.lg,
-    paddingBottom: spacing.xxl,
-    paddingHorizontal: spacing.xxl,
-    borderBottomLeftRadius: borderRadius.lg + 8,
-    borderBottomRightRadius: borderRadius.lg + 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoWrapper: {
-    marginRight: spacing.sm,
-  },
-  greeting: {
-    fontSize: fontSize.md,
-    color: 'rgba(255,255,255,0.9)',
-    fontWeight: '500',
-    marginBottom: spacing.xs,
-  },
-  headerTitle: {
-    fontSize: fontSize.heading - 2,
-    fontWeight: '700',
-    color: colors.white,
-  },
-  logoutButton: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.md,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
   container: {
-    padding: spacing.xxl,
-    paddingTop: spacing.xl,
+    flex: 1,
+    backgroundColor: '#f8fafc',
   },
   loadingContainer: {
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
-    paddingVertical: spacing.huge + spacing.lg,
+    alignItems: 'center',
   },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: fontSize.base,
-    color: colors.textSecondary,
+  header: {
+    padding: 20,
+    paddingTop: 60,
+    backgroundColor: '#2d6a4f',
   },
-  statsSection: {
-    marginBottom: spacing.xxl,
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
   },
-  cardsRow: {
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#a7f3d0',
+    marginTop: 4,
+  },
+  statsGrid: {
     flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.md,
+    flexWrap: 'wrap',
+    padding: 16,
+    justifyContent: 'space-between',
   },
   statCard: {
-    flex: 1,
-    padding: spacing.xl,
-    borderRadius: borderRadius.lg,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-    minHeight: 120,
+    width: (width - 48) / 2,
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  statIconContainer: {
-    marginBottom: spacing.sm,
-  },
-  statLabel: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: fontSize.sm,
-    fontWeight: '500',
-    marginBottom: spacing.xs,
+  statGradient: {
+    padding: 20,
+    alignItems: 'center',
   },
   statValue: {
-    color: colors.white,
-    fontWeight: '700',
-    fontSize: fontSize.title,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 8,
   },
-  chartSection: {
-    gap: spacing.xl,
-    marginBottom: spacing.xxl,
+  statTitle: {
+    fontSize: 14,
+    color: 'white',
+    marginTop: 4,
+    textAlign: 'center',
   },
-  chartCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+  statSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
+    textAlign: 'center',
   },
-  chartHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  chartTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  chart: {
-    borderRadius: borderRadius.sm,
-    marginVertical: spacing.sm,
-  },
-  actionsSection: {
-    gap: spacing.md,
-    marginBottom: spacing.xxl,
+  quickActionsSection: {
+    padding: 16,
   },
   sectionTitle: {
-    fontSize: fontSize.xl,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: spacing.sm,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 16,
   },
-  actionButtonWrapper: {
-    width: '100%',
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
-  actionButton: {
+  quickAction: {
+    width: (width - 48) / 2,
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  quickActionText: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2d6a4f',
+  },
+  recentRidesSection: {
+    padding: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  viewAllText: {
+    color: '#2d6a4f',
+    fontWeight: '600',
+  },
+  rideCard: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  rideHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  rideRoute: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    color: 'white',
+    fontWeight: '600',
+  },
+  rideDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rideDate: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  rideCost: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#059669',
+  },
+  ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.md + 2,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+    marginTop: 8,
   },
-  actionButtonText: {
-    flex: 1,
-    color: colors.white,
-    fontWeight: '700',
-    fontSize: fontSize.lg,
-    marginLeft: spacing.md,
+  ratingText: {
+    marginLeft: 4,
+    fontSize: 14,
+    color: '#fbbf24',
+    fontWeight: '600',
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginTop: 16,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginTop: 8,
+    textAlign: 'center',
   },
 });

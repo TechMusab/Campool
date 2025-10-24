@@ -16,6 +16,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.musab.campoLIol",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -37,9 +38,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": ""
+        "projectId": "cd9efcab-af12-4c97-95cc-8fbe3583bdb4"
       },
-      "EXPO_PUBLIC_API_BASE": "http://192.168.10.9:4000"
+      "EXPO_PUBLIC_API_BASE": "http://192.168.10.10:4000"
     }
   }
 }
