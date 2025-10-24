@@ -1,6 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-const http = require('http');
 const cors = require('cors');
 const mongoose = require('mongoose');
 
@@ -10,44 +9,72 @@ const chatRoutes = require('./routes/chat');
 const ratingRoutes = require('./routes/ratingRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
-const { setupChatSocket } = require('./socket/chatSocket');
 
 const app = express();
-const server = http.createServer(app);
 
-app.use(cors());
-app.use(express.json());
+// Middleware
+app.use(cors({
+	origin: process.env.CORS_ORIGIN || '*',
+	credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
+// Database connection
 const MONGO_URI = process.env.MONGO_URI;
-const PORT = process.env.PORT || 4000;
 
-async function start() {
+async function connectDB() {
 	try {
-		await mongoose.connect(MONGO_URI);
-		console.log('Connected to MongoDB');
-
-		// REST routes
-		app.use('/api/auth', authRoutes);
-		app.use('/', rideRoutes);
-		app.use('/', chatRoutes);
-		app.use('/', ratingRoutes);
-		app.use('/', statsRoutes);
-		app.use('/api/dashboard', dashboardRoutes);
-
-		app.get('/health', (req, res) => {
-			res.json({ status: 'ok' });
-		});
-
-		// Socket.IO
-		setupChatSocket(server);
-
-		server.listen(PORT, "0.0.0.0", () => {
-			console.log(`Server running on http://localhost:${PORT}`);
-		});
+		if (mongoose.connection.readyState === 0) {
+			await mongoose.connect(MONGO_URI, {
+				useNewUrlParser: true,
+				useUnifiedTopology: true,
+			});
+			console.log('Connected to MongoDB');
+		}
 	} catch (error) {
-		console.error('Failed to start server', error);
-		process.exit(1);
+		console.error('MongoDB connection error:', error);
 	}
 }
 
-start();
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api', rideRoutes);
+app.use('/api', chatRoutes);
+app.use('/api', ratingRoutes);
+app.use('/api', statsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+
+// Health check
+app.get('/health', (req, res) => {
+	res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+	res.json({ 
+		message: 'Campool API Server', 
+		status: 'running',
+		timestamp: new Date().toISOString()
+	});
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+	console.error('Error:', err);
+	res.status(500).json({ 
+		error: 'Internal Server Error',
+		message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+	});
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+	res.status(404).json({ error: 'Route not found' });
+});
+
+// Initialize database connection
+connectDB();
+
+// Export for Vercel
+module.exports = app;

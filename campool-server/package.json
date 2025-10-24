@@ -2,10 +2,14 @@
   "name": "campool-server",
   "version": "1.0.0",
   "main": "index.js",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "vercel-build": "echo 'No build step required'"
   },
   "keywords": [],
   "author": "",
