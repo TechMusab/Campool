@@ -42,24 +42,51 @@ async function connectDB() {
 	}
 }
 
-// Initialize database connection
-connectDB();
+// Routes - with error handling
+try {
+	const authRoutes = require('./routes/authRoutes');
+	const rideRoutes = require('./routes/rideRoutes');
+	const chatRoutes = require('./routes/chat');
+	const ratingRoutes = require('./routes/ratingRoutes');
+	const statsRoutes = require('./routes/statsRoutes');
+	const dashboardRoutes = require('./routes/dashboardRoutes');
 
-// Simple test endpoint
-app.get('/test', (req, res) => {
-	res.json({ 
-		message: 'Server is running', 
-		timestamp: new Date().toISOString(),
-		env: process.env.NODE_ENV || 'development'
+	app.use('/api/auth', authRoutes);
+	app.use('/api', rideRoutes);
+	app.use('/api', chatRoutes);
+	app.use('/api', ratingRoutes);
+	app.use('/api', statsRoutes);
+	app.use('/api/dashboard', dashboardRoutes);
+	
+	console.log('All routes loaded successfully');
+} catch (error) {
+	console.error('Error loading routes:', error);
+	// Add a fallback route
+	app.use('/api', (req, res) => {
+		res.status(500).json({ error: 'Routes not loaded properly' });
 	});
+}
+
+// Health check
+app.get('/health', (req, res) => {
+	res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Root endpoint
 app.get('/', (req, res) => {
 	res.json({ 
-		message: 'Campool API Server - Minimal Version', 
+		message: 'Campool API Server', 
 		status: 'running',
 		timestamp: new Date().toISOString()
+	});
+});
+
+// Add a simple test endpoint that doesn't require DB
+app.get('/test', (req, res) => {
+	res.json({ 
+		message: 'Server is running', 
+		timestamp: new Date().toISOString(),
+		env: process.env.NODE_ENV || 'development'
 	});
 });
 
@@ -88,10 +115,22 @@ app.get('/diagnostic', (req, res) => {
 	res.json(diagnostic);
 });
 
-// 404 handler - NO WILDCARDS
+// Error handling middleware
+app.use((err, req, res, next) => {
+	console.error('Error:', err);
+	res.status(500).json({ 
+		error: 'Internal Server Error',
+		message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+	});
+});
+
+// 404 handler - use proper catch-all route (NO WILDCARDS)
 app.use((req, res) => {
 	res.status(404).json({ error: 'Route not found' });
 });
+
+// Initialize database connection
+connectDB();
 
 // Export for Vercel
 module.exports = app;
