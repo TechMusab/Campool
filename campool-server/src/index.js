@@ -62,7 +62,7 @@ try {
 } catch (error) {
 	console.error('Error loading routes:', error);
 	// Add a fallback route
-	app.use('/api/*', (req, res) => {
+	app.use('/api', (req, res) => {
 		res.status(500).json({ error: 'Routes not loaded properly' });
 	});
 }
