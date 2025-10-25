@@ -291,6 +291,15 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/inbox')}
+          >
+            <Ionicons name="mail-outline" size={24} color="#2d6a4f" />
+            <Text style={styles.actionText}>Inbox</Text>
+            <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.actionButton, styles.logoutButton]}
             onPress={handleLogout}
           >

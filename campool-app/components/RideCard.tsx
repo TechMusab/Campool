@@ -53,12 +53,15 @@ export default function RideCard({ ride, onJoin, currentUserId }: { ride: Ride; 
       
       {/* Action Buttons Row */}
       <View style={styles.buttonRow}>
-        <TouchableOpacity onPress={openChat} style={styles.chatButton}>
-          <LinearGradient colors={["#3b82f6", "#1d4ed8"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.chatGradient}>
-            <Ionicons name="chatbubble-outline" size={18} color="#fff" />
-            <Text style={styles.chatText}>Chat</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        {/* Only show chat button if current user is not the ride creator */}
+        {currentUserId !== ride.driverId && (
+          <TouchableOpacity onPress={openChat} style={styles.chatButton}>
+            <LinearGradient colors={["#3b82f6", "#1d4ed8"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.chatGradient}>
+              <Ionicons name="chatbubble-outline" size={18} color="#fff" />
+              <Text style={styles.chatText}>Chat</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
         
         <TouchableOpacity onPress={openWhatsApp} style={styles.whatsappButton}>
           <LinearGradient colors={["#25D366", "#128C7E"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.whatsappGradient}>

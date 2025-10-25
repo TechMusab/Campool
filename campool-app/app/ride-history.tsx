@@ -37,10 +37,24 @@ export default function RideHistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'completed' | 'cancelled' | 'ongoing'>('all');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     loadRideHistory();
+    loadCurrentUserId();
   }, []);
+
+  const loadCurrentUserId = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('campool_user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        setCurrentUserId(userData.id);
+      }
+    } catch (error) {
+      console.error('Error loading current user ID:', error);
+    }
+  };
 
   const loadRideHistory = async () => {
     try {
@@ -95,11 +109,16 @@ export default function RideHistoryScreen() {
     filter === 'all' || ride.status === filter
   );
 
-  const RideCard = ({ ride }: { ride: RideHistory }) => (
-    <TouchableOpacity
-      style={styles.rideCard}
-      onPress={() => router.push(`/chat/${ride.id}`)}
-    >
+  const RideCard = ({ ride }: { ride: RideHistory }) => {
+    // Only show chat if current user is not the ride creator
+    const showChat = currentUserId !== ride.driverId;
+    
+    return (
+      <TouchableOpacity
+        style={styles.rideCard}
+        onPress={() => showChat && router.push(`/chat/${ride.id}`)}
+        disabled={!showChat}
+      >
       <View style={styles.rideHeader}>
         <View style={styles.routeInfo}>
           <Text style={styles.routeText}>{ride.startPoint} → {ride.destination}</Text>
@@ -143,7 +162,8 @@ export default function RideHistoryScreen() {
         </Text>
       )}
     </TouchableOpacity>
-  );
+    );
+  };
 
   if (loading) {
     return (

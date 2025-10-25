@@ -57,22 +57,32 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (!rideId) return;
-    socket.joinRoom(rideId);
+    
+    console.log('Joining chat room:', rideId);
+    socket.joinRoom(rideId, (res: any) => {
+      console.log('Join room response:', res);
+    });
+    
     const onReceive = (msg: Message) => {
+      console.log('Received message:', msg);
       setMessages((prev) => [...prev, msg]);
       flatListRef.current?.scrollToEnd({ animated: true });
     };
     const onTyping = (payload: any) => {
+      console.log('User typing:', payload);
       if (payload?.userId) setTypingUsers((p) => ({ ...p, [payload.userId]: payload.name || 'Someone' }));
     };
     const onStopTyping = (payload: any) => {
+      console.log('User stopped typing:', payload);
       if (payload?.userId) setTypingUsers((p) => { const c = { ...p }; delete c[payload.userId]; return c; });
     };
+    
     socket.on('receiveMessage', onReceive);
     socket.on('typing', onTyping);
     socket.on('stopTyping', onStopTyping);
-
+    
     return () => {
+      console.log('Leaving chat room:', rideId);
       socket.leaveRoom(rideId);
       socket.off('receiveMessage', onReceive);
       socket.off('typing', onTyping);
@@ -83,14 +93,19 @@ export default function ChatScreen() {
   async function send() {
     const text = input.trim();
     if (!text || !rideId) return;
+    
+    console.log('Sending message:', { rideId, text });
     setInput('');
     const temp: TempMessage = { _id: `temp-${Date.now()}`, rideId, senderId: 'me', senderName: 'Me', text, createdAt: new Date().toISOString(), temp: true };
     setMessages((prev) => [...prev, temp]);
     flatListRef.current?.scrollToEnd({ animated: true });
+    
     socket.sendMessage({ rideId, text }, (res: any) => {
+      console.log('Send message response:', res);
       if (res?.ok && res.message) {
         setMessages((prev) => prev.map((m) => (m._id === temp._id ? res.message : m)));
       } else {
+        console.log('Message send failed:', res);
         setMessages((prev) => prev.map((m) => (m._id === temp._id ? { ...m, text: `${m.text} (failed)` } : m)));
       }
     });
@@ -121,30 +136,12 @@ export default function ChatScreen() {
   // Quick Actions
   const quickActions: QuickAction[] = [
     {
-      id: 'location',
-      label: 'Share Location',
-      icon: 'location-outline',
-      action: () => {
-        sendSystemMessage('📍 Location shared: Current location');
-        Alert.alert('Location Shared', 'Your current location has been shared with the group.');
-      }
-    },
-    {
       id: 'confirm',
       label: 'Confirm Pickup',
       icon: 'checkmark-circle-outline',
       action: () => {
         sendSystemMessage('✅ Pickup confirmed by passenger');
         Alert.alert('Pickup Confirmed', 'You have confirmed your pickup location.');
-      }
-    },
-    {
-      id: 'payment',
-      label: 'Send Payment',
-      icon: 'card-outline',
-      action: () => {
-        sendSystemMessage('💰 Payment sent: $15.00');
-        Alert.alert('Payment Sent', 'Payment of $15.00 has been sent to the driver.');
       }
     },
     {
@@ -163,15 +160,6 @@ export default function ChatScreen() {
       action: () => {
         sendSystemMessage('🚨 Emergency contact notified');
         Alert.alert('Emergency Alert', 'Emergency contacts have been notified of your location.');
-      }
-    },
-    {
-      id: 'rate',
-      label: 'Rate Ride',
-      icon: 'star-outline',
-      action: () => {
-        sendSystemMessage('⭐ Ride rating: 5 stars');
-        Alert.alert('Ride Rated', 'Thank you for rating your ride experience!');
       }
     }
   ];

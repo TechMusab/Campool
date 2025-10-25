@@ -12,6 +12,7 @@ export function useChatSocket(serverUrl: string, token: string | null) {
     socketRef.current = socket;
 
     function onConnect() {
+      console.log('Socket connected');
       setConnected(true);
       // rejoin rooms after reconnect
       joinedRoomsRef.current.forEach((room) => {
@@ -19,6 +20,7 @@ export function useChatSocket(serverUrl: string, token: string | null) {
       });
     }
     function onDisconnect() {
+      console.log('Socket disconnected');
       setConnected(false);
     }
 
@@ -37,7 +39,9 @@ export function useChatSocket(serverUrl: string, token: string | null) {
   const api = useMemo(() => ({
     connected,
     joinRoom: (rideId: string, ack?: (res: any) => void) => {
+      console.log('Joining room:', rideId);
       socketRef.current?.emit('joinRoom', { rideId }, (res: any) => {
+        console.log('Join room ack:', res);
         if (res?.ok) joinedRoomsRef.current.add(rideId);
         ack?.(res);
       });
@@ -49,6 +53,7 @@ export function useChatSocket(serverUrl: string, token: string | null) {
       });
     },
     sendMessage: (payload: { rideId: string; text: string }, ack?: (res: any) => void) => {
+      console.log('Sending message via socket:', payload);
       socketRef.current?.emit('sendMessage', payload, ack);
     },
     on: (event: string, handler: (...args: any[]) => void) => {

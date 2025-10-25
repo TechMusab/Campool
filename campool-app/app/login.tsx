@@ -17,23 +17,37 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Create test user function
-  async function createTestUser() {
+  // Create test users function
+  async function createTestUsers() {
     try {
       setLoading(true);
-      Alert.alert(
-        'Test User Created',
-        'Test user has been created. You can now login with:\n\nEmail: test@university.edu\nPassword: test123',
-        [
-          { text: 'OK', onPress: () => {
-            setEmail('test@university.edu');
-            setPassword('test123');
-          }}
-        ]
-      );
+      const response = await axios.post(`${API_BASE}/api/auth/create-test-users`, {});
+      
+      if (response.data && response.data.users) {
+        const users = response.data.users;
+        const userList = users.map((user: any) => 
+          `• ${user.user.email} (Password: ${user.user.email.includes('alice') ? 'alice123' : 'bob123'})`
+        ).join('\n');
+        
+        Alert.alert(
+          'Test Users Created',
+          `Test users have been created successfully!\n\n${userList}\n\nYou can now login with any of these accounts.`,
+          [
+            { text: 'Use Alice', onPress: () => {
+              setEmail('alice@university.edu');
+              setPassword('alice123');
+            }},
+            { text: 'Use Bob', onPress: () => {
+              setEmail('bob@university.edu');
+              setPassword('bob123');
+            }},
+            { text: 'OK' }
+          ]
+        );
+      }
     } catch (error) {
-      console.error('Error creating test user:', error);
-      Alert.alert('Error', 'Failed to create test user. Please try signing up manually.');
+      console.error('Error creating test users:', error);
+      Alert.alert('Error', 'Failed to create test users. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -201,14 +215,14 @@ export default function LoginScreen() {
             </Link>
           </View>
 
-          {/* Test User Button */}
+          {/* Test Users Button */}
           <TouchableOpacity 
             style={styles.testUserButton} 
-            onPress={createTestUser}
+            onPress={createTestUsers}
             disabled={loading}
           >
             <Text style={styles.testUserButtonText}>
-              {loading ? 'Creating...' : 'Create Test User'}
+              {loading ? 'Creating...' : 'Create Test Users'}
             </Text>
           </TouchableOpacity>
         </View>
