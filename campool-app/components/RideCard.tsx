@@ -33,6 +33,7 @@ export default function RideCard({ ride, onJoin, currentUserId, showJoinButton =
   const total = ride.totalCost ?? (ride.costPerSeat * ride.availableSeats);
   const isMyRide = currentUserId && typeof ride.driverId === 'object' && ride.driverId && ride.driverId._id === currentUserId;
   
+  
   const openWhatsApp = () => {
     if (!whatsappNumber) {
       Alert.alert('Error', 'WhatsApp number not available');
@@ -46,10 +47,16 @@ export default function RideCard({ ride, onJoin, currentUserId, showJoinButton =
   };
 
   const trackRide = () => {
-    router.push(`/ride-tracking?rideId=${ride._id}`);
+    try {
+      router.push(`/ride-tracking?rideId=${ride._id}`);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      Alert.alert('Navigation Error', 'Could not navigate to ride tracking');
+    }
   };
 
   const joinRide = async () => {
+    Alert.alert('Debug', 'Join Ride button pressed!');
     if (isMyRide) {
       Alert.alert('Cannot Join', 'You cannot join your own ride');
       return;
@@ -71,9 +78,13 @@ export default function RideCard({ ride, onJoin, currentUserId, showJoinButton =
       if (response.ok) {
         const data = await response.json();
         Alert.alert(
-          'Join Request Sent!',
-          'Your request to join this ride has been sent. The ride creator will be notified and can accept or reject your request.',
-          [{ text: 'OK' }]
+          'Join Request Sent! 🚗',
+          'Your request to join this ride has been sent to the ride creator. You will be notified when they respond to your request.',
+          [
+            { 
+              text: 'OK'
+            }
+          ]
         );
         if (onJoin) onJoin(ride);
       } else {
@@ -110,7 +121,7 @@ export default function RideCard({ ride, onJoin, currentUserId, showJoinButton =
         </TouchableOpacity>
         
         <TouchableOpacity onPress={trackRide} style={styles.trackButton}>
-          <LinearGradient colors={["#3b82f6", "#1d4ed8"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.trackGradient}>
+          <LinearGradient colors={["#6b7280", "#4b5563"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.trackGradient}>
             <Ionicons name="location-outline" size={18} color="#fff" />
             <Text style={styles.trackText}>Track</Text>
           </LinearGradient>
@@ -134,6 +145,7 @@ export default function RideCard({ ride, onJoin, currentUserId, showJoinButton =
             </LinearGradient>
           </TouchableOpacity>
         )}
+        
         
         {isMyRide && (
           <TouchableOpacity style={styles.myRideButton}>
