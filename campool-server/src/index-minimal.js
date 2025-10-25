@@ -204,12 +204,61 @@ app.post('/api/rides/join', async (req, res) => {
 			return res.status(400).json({ error: 'rideId is required' });
 		}
 
-		// For now, just return success - we'll implement the full logic later
-		console.log('Join request received for ride:', rideId);
+		// Get user ID from Authorization header
+		const authHeader = req.headers.authorization;
+		if (!authHeader || !authHeader.startsWith('Bearer ')) {
+			return res.status(401).json({ error: 'Authorization token required' });
+		}
+
+		const token = authHeader.slice(7);
+		let userId;
+		try {
+			const jwt = require('jsonwebtoken');
+			const payload = jwt.verify(token, process.env.JWT_SECRET);
+			userId = payload.sub;
+		} catch (jwtError) {
+			return res.status(401).json({ error: 'Invalid token' });
+		}
+
+		// Import Ride model
+		const Ride = require('./models/Ride');
+		
+		// Verify ride exists
+		const ride = await Ride.findById(rideId);
+		if (!ride) {
+			return res.status(404).json({ error: 'Ride not found' });
+		}
+
+		// Check if user is the driver
+		if (ride.driverId.toString() === userId) {
+			return res.status(400).json({ error: 'You cannot join your own ride' });
+		}
+
+		// Check if user already has a pending request
+		const existingPassenger = ride.passengers.find(p => p.userId.toString() === userId);
+		if (existingPassenger) {
+			return res.status(400).json({ error: 'You have already requested to join this ride' });
+		}
+
+		// Check if there are available seats
+		if (ride.passengers.length >= ride.availableSeats) {
+			return res.status(400).json({ error: 'No available seats' });
+		}
+
+		// Add passenger request to ride
+		ride.passengers.push({
+			userId: userId,
+			joinedAt: new Date(),
+			status: 'pending' // Pending approval from driver
+		});
+
+		await ride.save();
+
+		console.log('Join request sent successfully:', ride._id);
 		return res.json({ 
 			success: true, 
 			message: 'Join request sent. The ride creator will be notified and can accept or reject your request.',
-			ride: rideId
+			ride: ride._id
 		});
 	} catch (err) {
 		console.error('Join ride error', err);

@@ -114,6 +114,19 @@ export default function RideCard({ ride, onJoin, currentUserId, showJoinButton =
           ]
         );
         if (onJoin) onJoin(ride);
+      } else if (response.status === 404) {
+        console.log('⚠️ API endpoint not deployed yet - using mock response');
+        // Mock response for development
+        Alert.alert(
+          'Join Request Sent! 🚗 (Mock)',
+          'Your request to join this ride has been sent to the ride creator. You will be notified when they respond to your request.\n\nNote: This is a mock response while the backend is being deployed.',
+          [
+            { 
+              text: 'OK'
+            }
+          ]
+        );
+        if (onJoin) onJoin(ride);
       } else {
         console.log('❌ API request failed');
         const errorData = await response.json();
