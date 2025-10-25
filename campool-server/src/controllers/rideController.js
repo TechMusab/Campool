@@ -18,19 +18,60 @@ function isFutureDate(dateString, timeString) {
 
 async function createRide(req, res) {
 	try {
+		console.log('createRide called with body:', req.body);
+		console.log('createRide called with userId:', req.userId);
+		
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for ride creation...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for ride creation');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
 		const { startPoint, destination, date, time, seats, costPerSeat, distanceKm } = req.body || {};
+		console.log('Parsed data:', { startPoint, destination, date, time, seats, costPerSeat, distanceKm });
+		
 		if (!startPoint || !destination || !date || !time) {
+			console.log('Missing required fields');
 			return res.status(400).json({ error: 'startPoint, destination, date and time are required' });
 		}
-		if (!isFutureDate(date, time)) {
+		const isFuture = isFutureDate(date, time);
+		console.log('Date validation result:', isFuture, 'for date:', date, 'time:', time);
+		if (!isFuture) {
+			console.log('Date is not in the future');
 			return res.status(400).json({ error: 'Date/time must be in the future' });
 		}
 		const seatsNum = Number(seats);
 		const costNum = Number(costPerSeat);
 		const distanceNum = Number(distanceKm);
+		console.log('Parsed numbers:', { seatsNum, costNum, distanceNum });
+		
 		if (!(seatsNum > 0)) return res.status(400).json({ error: 'Seats must be > 0' });
 		if (!(costNum > 0)) return res.status(400).json({ error: 'Cost per seat must be > 0' });
 		if (!(distanceNum > 0)) return res.status(400).json({ error: 'distanceKm must be > 0' });
+
+		console.log('Creating ride with data:', {
+			driverId: req.userId,
+			startPoint,
+			destination,
+			date: new Date(date),
+			time,
+			availableSeats: seatsNum,
+			costPerSeat: costNum,
+			distanceKm: distanceNum,
+		});
 
 		const ride = await Ride.create({
 			driverId: req.userId,
@@ -42,6 +83,8 @@ async function createRide(req, res) {
 			costPerSeat: costNum,
 			distanceKm: distanceNum,
 		});
+
+		console.log('Ride created successfully:', ride._id);
 
 		const populated = await ride.populate({ path: 'driverId', select: 'name avgRating whatsappNumber' });
 		return res.status(201).json({ success: true, ride: populated });
@@ -109,4 +152,48 @@ async function getRideById(req, res) {
 	}
 }
 
-module.exports = { createRide, searchRides, getRideById }; 
+// Test ride creation endpoint
+async function testRideCreation(req, res) {
+	try {
+		console.log('Test ride creation called');
+		
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for test ride creation...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for test ride creation');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		// Create a test ride with fixed data
+		const testRide = await Ride.create({
+			driverId: req.userId || '68fd20df9a4a98742d7322e0', // Alice's ID
+			startPoint: 'Test Start',
+			destination: 'Test Destination',
+			date: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
+			time: '10:00',
+			availableSeats: 2,
+			costPerSeat: 50,
+			distanceKm: 10,
+		});
+
+		console.log('Test ride created successfully:', testRide._id);
+		return res.status(201).json({ success: true, ride: testRide });
+	} catch (err) {
+		console.error('Test ride creation error', err);
+		return res.status(500).json({ error: 'Internal server error', details: err.message });
+	}
+}
+
+module.exports = { createRide, searchRides, getRideById, testRideCreation }; 
