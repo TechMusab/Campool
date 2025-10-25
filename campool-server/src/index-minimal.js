@@ -266,6 +266,178 @@ app.post('/api/rides/join', async (req, res) => {
 	}
 });
 
+// Respond to join request endpoint
+app.post('/api/rides/respond-join', async (req, res) => {
+	try {
+		console.log('Respond to join request:', req.body);
+		
+		// Force MongoDB connection for serverless environment
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for join response...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for join response');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		const { rideId, userId, action } = req.body;
+		if (!rideId || !userId || !action) {
+			return res.status(400).json({ error: 'rideId, userId, and action are required' });
+		}
+
+		// Get user ID from Authorization header
+		const authHeader = req.headers.authorization;
+		if (!authHeader || !authHeader.startsWith('Bearer ')) {
+			return res.status(401).json({ error: 'Authorization token required' });
+		}
+
+		const token = authHeader.slice(7);
+		let driverId;
+		try {
+			const jwt = require('jsonwebtoken');
+			const payload = jwt.verify(token, process.env.JWT_SECRET);
+			driverId = payload.sub;
+		} catch (jwtError) {
+			return res.status(401).json({ error: 'Invalid token' });
+		}
+
+		// Import Ride model
+		const Ride = require('./models/Ride');
+		
+		// Verify ride exists and user is the driver
+		const ride = await Ride.findById(rideId);
+		if (!ride) {
+			return res.status(404).json({ error: 'Ride not found' });
+		}
+
+		if (ride.driverId.toString() !== driverId) {
+			return res.status(403).json({ error: 'Only the ride creator can respond to join requests' });
+		}
+
+		// Find the passenger request
+		const passengerIndex = ride.passengers.findIndex(p => p.userId.toString() === userId);
+		if (passengerIndex === -1) {
+			return res.status(404).json({ error: 'Join request not found' });
+		}
+
+		// Update passenger status
+		ride.passengers[passengerIndex].status = action === 'accept' ? 'accepted' : 'rejected';
+
+		// If accepted, update ride status
+		if (action === 'accept' && ride.status === 'pending') {
+			ride.status = 'confirmed';
+		}
+
+		await ride.save();
+
+		console.log(`Join request ${action}ed successfully:`, ride._id);
+		return res.json({ 
+			success: true, 
+			message: `Join request ${action}ed successfully`,
+			ride: ride
+		});
+	} catch (err) {
+		console.error('Respond to join request error', err);
+		return res.status(500).json({ error: 'Internal server error', details: err.message });
+	}
+});
+
+// Get ride status endpoint
+app.get('/api/rides/:id/status', async (req, res) => {
+	try {
+		console.log('Get ride status for:', req.params.id);
+		
+		// Force MongoDB connection for serverless environment
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for ride status...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for ride status');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		const rideId = req.params.id;
+		if (!mongoose.Types.ObjectId.isValid(rideId)) {
+			return res.status(400).json({ error: 'Invalid ride ID' });
+		}
+
+		// Get user ID from Authorization header
+		const authHeader = req.headers.authorization;
+		if (!authHeader || !authHeader.startsWith('Bearer ')) {
+			return res.status(401).json({ error: 'Authorization token required' });
+		}
+
+		const token = authHeader.slice(7);
+		let userId;
+		try {
+			const jwt = require('jsonwebtoken');
+			const payload = jwt.verify(token, process.env.JWT_SECRET);
+			userId = payload.sub;
+		} catch (jwtError) {
+			return res.status(401).json({ error: 'Invalid token' });
+		}
+
+		// Import Ride model
+		const Ride = require('./models/Ride');
+		
+		const ride = await Ride.findById(rideId)
+			.populate('driverId', 'name whatsappNumber')
+			.populate('passengers.userId', 'name whatsappNumber');
+
+		if (!ride) {
+			return res.status(404).json({ error: 'Ride not found' });
+		}
+
+		// Check if user is driver or passenger
+		const isDriver = ride.driverId._id.toString() === userId;
+		const isPassenger = ride.passengers.some(p => p.userId._id.toString() === userId);
+
+		if (!isDriver && !isPassenger) {
+			return res.status(403).json({ error: 'You are not part of this ride' });
+		}
+
+		console.log('Ride status retrieved:', ride.status);
+		return res.json({ 
+			success: true, 
+			ride: {
+				id: ride._id,
+				status: ride.status,
+				startedAt: ride.startedAt,
+				completedAt: ride.completedAt,
+				actualStartTime: ride.actualStartTime,
+				actualEndTime: ride.actualEndTime,
+				driver: ride.driverId,
+				passengers: ride.passengers,
+				startPoint: ride.startPoint,
+				destination: ride.destination,
+				date: ride.date,
+				time: ride.time
+			}
+		});
+	} catch (err) {
+		console.error('Get ride status error', err);
+		return res.status(500).json({ error: 'Internal server error', details: err.message });
+	}
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
 	console.error('Error:', err);
