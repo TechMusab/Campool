@@ -196,4 +196,129 @@ async function getInbox(req, res) {
 	}
 }
 
-module.exports = { getProfile, updateProfile, getInbox };
+// Test message creation endpoint
+async function testMessage(req, res) {
+	try {
+		console.log('Test message creation called');
+		
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for test message...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for test message');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		const Message = require('../models/Message');
+		const Ride = require('../models/Ride');
+		const User = require('../models/User');
+
+		// Get a test ride or create one
+		let testRide = await Ride.findOne().lean();
+		if (!testRide) {
+			// Create a test ride
+			const testUser = await User.findOne().lean();
+			if (!testUser) {
+				return res.status(400).json({ error: 'No users found' });
+			}
+			testRide = await Ride.create({
+				driverId: testUser._id,
+				startPoint: 'Test Start',
+				destination: 'Test Destination',
+				date: new Date(Date.now() + 24 * 60 * 60 * 1000),
+				time: '10:00',
+				availableSeats: 2,
+				costPerSeat: 50,
+				distanceKm: 10,
+			});
+		}
+
+		// Create a test message
+		const testMessage = await Message.create({
+			rideId: testRide._id,
+			senderId: req.userId,
+			senderName: 'Test User',
+			text: 'Test message from API',
+		});
+
+		console.log('Test message created successfully:', testMessage._id);
+		return res.status(201).json({ success: true, message: testMessage });
+	} catch (err) {
+		console.error('Test message creation error', err);
+		return res.status(500).json({ error: 'Internal server error', details: err.message });
+	}
+}
+
+// Create message via API (fallback for socket issues)
+async function createMessage(req, res) {
+	try {
+		console.log('createMessage called with body:', req.body);
+		
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for message creation...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for message creation');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		const { rideId, text } = req.body;
+		if (!rideId || !text) {
+			return res.status(400).json({ error: 'rideId and text are required' });
+		}
+
+		const Message = require('../models/Message');
+		const Ride = require('../models/Ride');
+		const User = require('../models/User');
+
+		// Verify ride exists
+		const ride = await Ride.findById(rideId);
+		if (!ride) {
+			return res.status(404).json({ error: 'Ride not found' });
+		}
+
+		// Get user info
+		const user = await User.findById(req.userId);
+		if (!user) {
+			return res.status(404).json({ error: 'User not found' });
+		}
+
+		// Create message
+		const message = await Message.create({
+			rideId,
+			senderId: req.userId,
+			senderName: user.name,
+			text: text.trim(),
+		});
+
+		console.log('Message created successfully:', message._id);
+		return res.status(201).json({ success: true, message });
+	} catch (err) {
+		console.error('createMessage error', err);
+		return res.status(500).json({ error: 'Internal server error', details: err.message });
+	}
+}
+
+module.exports = { getProfile, updateProfile, getInbox, testMessage, createMessage };

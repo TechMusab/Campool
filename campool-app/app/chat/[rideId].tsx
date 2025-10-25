@@ -58,6 +58,9 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!rideId) return;
     
+    // Load existing messages from API
+    loadMessages();
+    
     console.log('Joining chat room:', rideId);
     socket.joinRoom(rideId, (res: any) => {
       console.log('Join room response:', res);
@@ -90,6 +93,28 @@ export default function ChatScreen() {
     };
   }, [rideId, socket]);
 
+  async function loadMessages() {
+    try {
+      console.log('Loading messages for ride:', rideId);
+      const token = await AsyncStorage.getItem('campool_token');
+      const response = await fetch(`${SERVER_URL}/api/rides/${rideId}/messages`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Messages loaded:', data);
+        setMessages(data);
+      } else {
+        console.log('Failed to load messages:', response.status);
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
+  }
+
   async function send() {
     const text = input.trim();
     if (!text || !rideId) return;
@@ -100,15 +125,43 @@ export default function ChatScreen() {
     setMessages((prev) => [...prev, temp]);
     flatListRef.current?.scrollToEnd({ animated: true });
     
+    // Try socket first, then fallback to API
     socket.sendMessage({ rideId, text }, (res: any) => {
       console.log('Send message response:', res);
       if (res?.ok && res.message) {
         setMessages((prev) => prev.map((m) => (m._id === temp._id ? res.message : m)));
       } else {
-        console.log('Message send failed:', res);
-        setMessages((prev) => prev.map((m) => (m._id === temp._id ? { ...m, text: `${m.text} (failed)` } : m)));
+        console.log('Socket send failed, trying API fallback:', res);
+        sendViaAPI(rideId, text, temp);
       }
     });
+  }
+
+  async function sendViaAPI(rideId: string, text: string, temp: TempMessage) {
+    try {
+      console.log('Sending message via API:', { rideId, text });
+      const token = await AsyncStorage.getItem('campool_token');
+      const response = await fetch(`${SERVER_URL}/api/users/create-message`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rideId, text }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('API message sent successfully:', data);
+        setMessages((prev) => prev.map((m) => (m._id === temp._id ? data.message : m)));
+      } else {
+        console.log('API message send failed:', response.status);
+        setMessages((prev) => prev.map((m) => (m._id === temp._id ? { ...m, text: `${m.text} (failed)` } : m)));
+      }
+    } catch (error) {
+      console.error('API message send error:', error);
+      setMessages((prev) => prev.map((m) => (m._id === temp._id ? { ...m, text: `${m.text} (failed)` } : m)));
+    }
   }
 
   function onInputChange(v: string) {

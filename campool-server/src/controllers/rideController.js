@@ -196,4 +196,55 @@ async function testRideCreation(req, res) {
 	}
 }
 
-module.exports = { createRide, searchRides, getRideById, testRideCreation }; 
+// Get messages for a ride
+async function getRideMessages(req, res) {
+	try {
+		console.log('getRideMessages called for ride:', req.params.id);
+		
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for ride messages...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for ride messages');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		const Message = require('../models/Message');
+		const Ride = require('../models/Ride');
+
+		const rideId = req.params.id;
+		if (!mongoose.isValidObjectId(rideId)) {
+			return res.status(400).json({ error: 'Invalid ride ID' });
+		}
+
+		// Verify ride exists
+		const ride = await Ride.findById(rideId);
+		if (!ride) {
+			return res.status(404).json({ error: 'Ride not found' });
+		}
+
+		// Get messages for this ride
+		const messages = await Message.find({ rideId })
+			.sort({ createdAt: 1 })
+			.lean();
+
+		console.log('Found messages:', messages.length);
+		return res.json(messages);
+	} catch (err) {
+		console.error('getRideMessages error', err);
+		return res.status(500).json({ error: 'Internal server error', details: err.message });
+	}
+}
+
+module.exports = { createRide, searchRides, getRideById, testRideCreation, getRideMessages }; 

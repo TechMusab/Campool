@@ -58,21 +58,36 @@ function setupChatSocket(httpServer) {
 
 		socket.on('sendMessage', async (payload, ack) => {
 			try {
+				console.log('sendMessage received:', payload);
 				const { rideId, text } = payload || {};
 				if (!rideId || !mongoose.isValidObjectId(rideId)) throw new Error('Invalid rideId');
 				if (!text || !String(text).trim()) throw new Error('Text required');
+				
+				console.log('Looking up ride:', rideId);
 				const ride = await Ride.findById(rideId).lean();
 				if (!ride) throw new Error('Ride not found');
+				console.log('Ride found:', ride._id);
+				
+				console.log('Creating message with data:', {
+					rideId,
+					senderId: user.id,
+					senderName: user.name,
+					text: String(text).trim(),
+				});
+				
 				const saved = await Message.create({
 					rideId,
 					senderId: user.id,
 					senderName: user.name,
 					text: String(text).trim(),
 				});
+				
+				console.log('Message saved successfully:', saved._id);
 				const msg = saved.toObject();
 				io.to(String(rideId)).emit('receiveMessage', msg);
 				ack && ack({ ok: true, message: msg });
 			} catch (err) {
+				console.error('sendMessage error:', err);
 				ack && ack({ ok: false, error: err.message || 'send failed' });
 			}
 		});
