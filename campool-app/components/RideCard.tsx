@@ -56,30 +56,57 @@ export default function RideCard({ ride, onJoin, currentUserId, showJoinButton =
   };
 
   const joinRide = async () => {
-    Alert.alert('Debug', 'Join Ride button pressed!');
+    console.log('🚗 JOIN RIDE DEBUG START');
+    console.log('Ride ID:', ride._id);
+    console.log('Current User ID:', currentUserId);
+    console.log('Is My Ride:', isMyRide);
+    console.log('Show Join Button:', showJoinButton);
+    
+    Alert.alert('Debug', `Join Ride pressed!\nRide ID: ${ride._id}\nIs My Ride: ${isMyRide}\nCurrent User: ${currentUserId}`);
+    
     if (isMyRide) {
+      console.log('❌ Cannot join own ride');
       Alert.alert('Cannot Join', 'You cannot join your own ride');
       return;
     }
 
+    console.log('✅ Proceeding with join request...');
+    
     try {
+      console.log('🔄 Setting joining state to true');
       setJoining(true);
-      const token = await AsyncStorage.getItem('campool_token');
       
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app'}/api/rides/join`, {
+      console.log('🔑 Getting token from AsyncStorage');
+      const token = await AsyncStorage.getItem('campool_token');
+      console.log('Token exists:', !!token);
+      
+      const apiUrl = `${process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app'}/api/rides/join`;
+      console.log('🌐 API URL:', apiUrl);
+      
+      const requestBody = { rideId: ride._id };
+      console.log('📦 Request body:', requestBody);
+      
+      console.log('📡 Making API request...');
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ rideId: ride._id }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log('📊 Response status:', response.status);
+      console.log('📊 Response ok:', response.ok);
+      
       if (response.ok) {
+        console.log('✅ API request successful');
         const data = await response.json();
+        console.log('📄 Response data:', data);
+        
         Alert.alert(
           'Join Request Sent! 🚗',
-          'Your request to join this ride has been sent to the ride creator. You will be notified when they respond to your request.',
+          `Success! Request sent for ride: ${ride._id}\nResponse: ${JSON.stringify(data)}`,
           [
             { 
               text: 'OK'
@@ -88,14 +115,20 @@ export default function RideCard({ ride, onJoin, currentUserId, showJoinButton =
         );
         if (onJoin) onJoin(ride);
       } else {
+        console.log('❌ API request failed');
         const errorData = await response.json();
-        Alert.alert('Error', errorData.error || 'Failed to join ride');
+        console.log('❌ Error data:', errorData);
+        Alert.alert('API Error', `Status: ${response.status}\nError: ${JSON.stringify(errorData)}`);
       }
     } catch (error) {
-      console.error('Error joining ride:', error);
-      Alert.alert('Error', 'Failed to join ride. Please try again.');
+      console.error('💥 Join ride error:', error);
+      console.error('💥 Error message:', error.message);
+      console.error('💥 Error stack:', error.stack);
+      Alert.alert('Network Error', `Failed to join ride: ${error.message}\n\nCheck console for details.`);
     } finally {
+      console.log('🔄 Setting joining state to false');
       setJoining(false);
+      console.log('🏁 JOIN RIDE DEBUG END');
     }
   };
 
