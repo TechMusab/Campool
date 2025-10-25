@@ -28,16 +28,27 @@ const MONGO_URI = process.env.MONGO_URI;
 async function connectDB() {
 	try {
 		if (mongoose.connection.readyState === 0) {
+			console.log('Attempting to connect to MongoDB...');
 			await mongoose.connect(MONGO_URI, {
 				useNewUrlParser: true,
 				useUnifiedTopology: true,
-				serverSelectionTimeoutMS: 5000, // 5 second timeout
+				serverSelectionTimeoutMS: 10000, // 10 second timeout
 				socketTimeoutMS: 45000, // 45 second timeout
+				maxPoolSize: 10,
+				serverSelectionRetryDelayMS: 5000,
+				heartbeatFrequencyMS: 10000,
 			});
-			console.log('Connected to MongoDB');
+			console.log('✅ Connected to MongoDB successfully');
+		} else {
+			console.log('MongoDB already connected, state:', mongoose.connection.readyState);
 		}
 	} catch (error) {
-		console.error('MongoDB connection error:', error);
+		console.error('❌ MongoDB connection error:', error);
+		console.error('Error details:', {
+			message: error.message,
+			code: error.code,
+			name: error.name
+		});
 		// Don't throw error in serverless - let the app continue
 	}
 }
@@ -114,6 +125,44 @@ app.get('/diagnostic', (req, res) => {
 	};
 	
 	res.json(diagnostic);
+});
+
+// Test MongoDB connection endpoint
+app.get('/test-db', async (req, res) => {
+	try {
+		// Try to connect if not already connected
+		if (mongoose.connection.readyState === 0) {
+			await mongoose.connect(process.env.MONGO_URI, {
+				useNewUrlParser: true,
+				useUnifiedTopology: true,
+				serverSelectionTimeoutMS: 5000,
+				socketTimeoutMS: 45000,
+			});
+		}
+		
+		// Test a simple database operation
+		const testCollection = mongoose.connection.db.collection('test');
+		await testCollection.insertOne({ 
+			test: 'connection', 
+			timestamp: new Date(),
+			message: 'Database connection successful!'
+		});
+		
+		res.json({ 
+			status: 'success', 
+			message: 'Database connection and write test successful!',
+			connectionState: mongoose.connection.readyState,
+			timestamp: new Date().toISOString()
+		});
+	} catch (error) {
+		console.error('Database test error:', error);
+		res.status(500).json({ 
+			status: 'error', 
+			message: 'Database test failed',
+			error: error.message,
+			connectionState: mongoose.connection.readyState
+		});
+	}
 });
 
 // Error handling middleware

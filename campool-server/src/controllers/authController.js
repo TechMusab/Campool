@@ -22,6 +22,19 @@ function hashOtp(otp) {
 
 async function requestOtp(req, res) {
     try {
+        // Ensure MongoDB connection before proceeding
+        const mongoose = require('mongoose');
+        if (mongoose.connection.readyState === 0) {
+            console.log('MongoDB not connected, attempting connection...');
+            await mongoose.connect(process.env.MONGO_URI, {
+                useNewUrlParser: true,
+                useUnifiedTopology: true,
+                serverSelectionTimeoutMS: 10000,
+                socketTimeoutMS: 45000,
+            });
+            console.log('MongoDB connected for OTP request');
+        }
+
         const missing = requireFields(req.body, ['email']);
         if (missing) return res.status(400).json({ error: `Missing field: ${missing}` });
 
