@@ -312,7 +312,7 @@ async function updateRideStatus(req, res) {
 	}
 }
 
-// Join a ride (for passengers)
+// Join a ride (for passengers) - sends request to ride creator
 async function joinRide(req, res) {
 	try {
 		console.log('joinRide called:', req.body);
@@ -347,10 +347,15 @@ async function joinRide(req, res) {
 			return res.status(404).json({ error: 'Ride not found' });
 		}
 
-		// Check if user is already a passenger
+		// Check if user is the driver
+		if (ride.driverId.toString() === req.userId) {
+			return res.status(400).json({ error: 'You cannot join your own ride' });
+		}
+
+		// Check if user already has a pending request
 		const existingPassenger = ride.passengers.find(p => p.userId.toString() === req.userId);
 		if (existingPassenger) {
-			return res.status(400).json({ error: 'You have already joined this ride' });
+			return res.status(400).json({ error: 'You have already requested to join this ride' });
 		}
 
 		// Check if there are available seats
@@ -358,28 +363,95 @@ async function joinRide(req, res) {
 			return res.status(400).json({ error: 'No available seats' });
 		}
 
-		// Add passenger to ride
+		// Add passenger request to ride
 		ride.passengers.push({
 			userId: req.userId,
 			joinedAt: new Date(),
-			status: 'joined'
+			status: 'pending' // Pending approval from driver
 		});
 
-		// Update ride status to confirmed if it was pending
-		if (ride.status === 'pending') {
+		await ride.save();
+
+		// TODO: Send notification to ride creator
+		// This would integrate with a notification service
+
+		console.log('Join request sent successfully:', ride._id);
+		return res.json({ 
+			success: true, 
+			message: 'Join request sent. The ride creator will be notified and can accept or reject your request.',
+			ride: ride._id
+		});
+	} catch (err) {
+		console.error('joinRide error', err);
+		return res.status(500).json({ error: 'Internal server error', details: err.message });
+	}
+}
+
+// Respond to join request (for ride creators)
+async function respondToJoinRequest(req, res) {
+	try {
+		console.log('respondToJoinRequest called:', req.body);
+		
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for join response...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for join response');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		const { rideId, userId, action } = req.body;
+		if (!rideId || !userId || !action) {
+			return res.status(400).json({ error: 'rideId, userId, and action are required' });
+		}
+
+		// Verify ride exists and user is the driver
+		const ride = await Ride.findById(rideId);
+		if (!ride) {
+			return res.status(404).json({ error: 'Ride not found' });
+		}
+
+		if (ride.driverId.toString() !== req.userId) {
+			return res.status(403).json({ error: 'Only the ride creator can respond to join requests' });
+		}
+
+		// Find the passenger request
+		const passengerIndex = ride.passengers.findIndex(p => p.userId.toString() === userId);
+		if (passengerIndex === -1) {
+			return res.status(404).json({ error: 'Join request not found' });
+		}
+
+		// Update passenger status
+		ride.passengers[passengerIndex].status = action === 'accept' ? 'accepted' : 'rejected';
+
+		// If accepted, update ride status
+		if (action === 'accept' && ride.status === 'pending') {
 			ride.status = 'confirmed';
 		}
 
 		await ride.save();
 
-		const populatedRide = await Ride.findById(ride._id)
-			.populate('driverId', 'name whatsappNumber')
-			.populate('passengers.userId', 'name whatsappNumber');
+		// TODO: Send notification to the passenger about the response
 
-		console.log('User joined ride successfully:', ride._id);
-		return res.json({ success: true, ride: populatedRide });
+		console.log(`Join request ${action}ed successfully:`, ride._id);
+		return res.json({ 
+			success: true, 
+			message: `Join request ${action}ed successfully`,
+			ride: ride
+		});
 	} catch (err) {
-		console.error('joinRide error', err);
+		console.error('respondToJoinRequest error', err);
 		return res.status(500).json({ error: 'Internal server error', details: err.message });
 	}
 }
@@ -453,4 +525,4 @@ async function getRideStatus(req, res) {
 	}
 }
 
-module.exports = { createRide, searchRides, getRideById, testRideCreation, getRideMessages, updateRideStatus, joinRide, getRideStatus }; 
+module.exports = { createRide, searchRides, getRideById, testRideCreation, getRideMessages, updateRideStatus, joinRide, respondToJoinRequest, getRideStatus }; 

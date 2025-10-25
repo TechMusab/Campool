@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const auth = require('../middleware/auth');
-const { createRide, searchRides, getRideById, testRideCreation, getRideMessages, updateRideStatus, joinRide, getRideStatus } = require('../controllers/rideController');
+const { createRide, searchRides, getRideById, testRideCreation, getRideMessages, updateRideStatus, joinRide, respondToJoinRequest, getRideStatus } = require('../controllers/rideController');
 
 const router = Router();
 
@@ -13,6 +13,7 @@ router.post('/rides/test', auth, testRideCreation);
 // Ride status management
 router.put('/rides/status', auth, updateRideStatus);
 router.post('/rides/join', auth, joinRide);
+router.post('/rides/respond-join', auth, respondToJoinRequest);
 router.get('/rides/:id/status', auth, getRideStatus);
 
 module.exports = router; 

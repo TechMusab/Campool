@@ -1,7 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type Ride = {
   _id: string;
@@ -16,13 +18,20 @@ export type Ride = {
   driverId?: { name?: string; avgRating?: number; whatsappNumber?: string } | string;
 };
 
-export default function RideCard({ ride, onJoin, currentUserId }: { ride: Ride; onJoin?: (ride: Ride) => void; currentUserId?: string }) {
+export default function RideCard({ ride, onJoin, currentUserId, showJoinButton = true }: { 
+  ride: Ride; 
+  onJoin?: (ride: Ride) => void; 
+  currentUserId?: string;
+  showJoinButton?: boolean;
+}) {
   const router = useRouter();
+  const [joining, setJoining] = useState(false);
   const driverName = typeof ride.driverId === 'object' && ride.driverId ? ride.driverId.name : 'Driver';
   const rating = typeof ride.driverId === 'object' && ride.driverId ? (ride.driverId as any).avgRating ?? 4.8 : 4.8;
   const whatsappNumber = typeof ride.driverId === 'object' && ride.driverId ? ride.driverId.whatsappNumber : null;
   const perPassenger = ride.perPassengerCost ?? ride.costPerSeat;
   const total = ride.totalCost ?? (ride.costPerSeat * ride.availableSeats);
+  const isMyRide = currentUserId && typeof ride.driverId === 'object' && ride.driverId && ride.driverId._id === currentUserId;
   
   const openWhatsApp = () => {
     if (!whatsappNumber) {
@@ -38,6 +47,45 @@ export default function RideCard({ ride, onJoin, currentUserId }: { ride: Ride; 
 
   const trackRide = () => {
     router.push(`/ride-tracking?rideId=${ride._id}`);
+  };
+
+  const joinRide = async () => {
+    if (isMyRide) {
+      Alert.alert('Cannot Join', 'You cannot join your own ride');
+      return;
+    }
+
+    try {
+      setJoining(true);
+      const token = await AsyncStorage.getItem('campool_token');
+      
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app'}/api/rides/join`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rideId: ride._id }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        Alert.alert(
+          'Join Request Sent!',
+          'Your request to join this ride has been sent. The ride creator will be notified and can accept or reject your request.',
+          [{ text: 'OK' }]
+        );
+        if (onJoin) onJoin(ride);
+      } else {
+        const errorData = await response.json();
+        Alert.alert('Error', errorData.error || 'Failed to join ride');
+      }
+    } catch (error) {
+      console.error('Error joining ride:', error);
+      Alert.alert('Error', 'Failed to join ride. Please try again.');
+    } finally {
+      setJoining(false);
+    }
   };
 
 
@@ -68,10 +116,30 @@ export default function RideCard({ ride, onJoin, currentUserId }: { ride: Ride; 
           </LinearGradient>
         </TouchableOpacity>
         
-        {onJoin && (
-          <TouchableOpacity onPress={() => onJoin(ride)} style={styles.joinButton}>
-            <LinearGradient colors={["#2d6a4f", "#1b9aaa"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.button}>
-              <Text style={styles.buttonText}>Join Ride</Text>
+        {showJoinButton && !isMyRide && (
+          <TouchableOpacity 
+            onPress={joinRide} 
+            style={styles.joinButton}
+            disabled={joining}
+          >
+            <LinearGradient colors={["#10b981", "#059669"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.button}>
+              {joining ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <>
+                  <Ionicons name="person-add-outline" size={18} color="#fff" />
+                  <Text style={styles.buttonText}>Join Ride</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+        
+        {isMyRide && (
+          <TouchableOpacity style={styles.myRideButton}>
+            <LinearGradient colors={["#6b7280", "#4b5563"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.button}>
+              <Ionicons name="person-outline" size={18} color="#fff" />
+              <Text style={styles.buttonText}>My Ride</Text>
             </LinearGradient>
           </TouchableOpacity>
         )}
@@ -94,6 +162,7 @@ const styles = StyleSheet.create({
   trackGradient: { paddingVertical: 10, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
   trackText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
   joinButton: { flex: 1 },
-  button: { paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  buttonText: { color: 'white', fontWeight: 'bold' },
+  myRideButton: { flex: 1 },
+  button: { paddingVertical: 10, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  buttonText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
 }); 

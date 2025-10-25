@@ -24,7 +24,12 @@ const rideSchema = new mongoose.Schema(
 		passengers: [{ 
 			userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 			joinedAt: { type: Date, default: Date.now },
-			status: { type: String, enum: ['joined', 'confirmed', 'completed', 'cancelled'], default: 'joined' }
+			status: { type: String, enum: ['pending', 'accepted', 'rejected', 'completed'], default: 'pending' },
+			location: {
+				lat: { type: Number },
+				lng: { type: Number },
+				address: { type: String }
+			}
 		}],
 		startedAt: { type: Date },
 		completedAt: { type: Date },

@@ -22,12 +22,24 @@ export default function SearchRidesScreen() {
   const [results, setResults] = useState<Ride[]>([]);
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Load token on mount
+  // Load token and user ID on mount
   useEffect(() => {
     (async () => {
       const t = await AsyncStorage.getItem('campool_token');
       setToken(t);
+      
+      // Load current user ID
+      try {
+        const storedUser = await AsyncStorage.getItem('campool_user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          setCurrentUserId(userData.id);
+        }
+      } catch (error) {
+        console.log('Error loading user data:', error);
+      }
     })();
   }, []);
 
@@ -172,7 +184,7 @@ export default function SearchRidesScreen() {
             <FlatList
               data={results}
               keyExtractor={(item) => item._id}
-              renderItem={({ item }) => <RideCard ride={item} />}
+              renderItem={({ item }) => <RideCard ride={item} currentUserId={currentUserId} />}
               showsVerticalScrollIndicator={false}
             />
           </>

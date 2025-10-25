@@ -117,6 +117,7 @@ export default function RootLayout() {
             <Stack.Screen name="search-rides" options={{ headerShown: false }} />
             <Stack.Screen name="ride-history" options={{ headerShown: false }} />
             <Stack.Screen name="ride-tracking" options={{ headerShown: false }} />
+            <Stack.Screen name="notifications" options={{ headerShown: false }} />
             <Stack.Screen name="help" options={{ headerShown: false }} />
             <Stack.Screen name="driver/[driverId]" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)/email-verification" options={{ headerShown: false }} />

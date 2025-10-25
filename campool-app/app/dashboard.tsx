@@ -312,6 +312,13 @@ export default function DashboardScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.quickAction}
+            onPress={() => router.push('/notifications')}
+          >
+            <Ionicons name="notifications-outline" size={32} color="#2d6a4f" />
+            <Text style={styles.quickActionText}>Notifications</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAction}
             onPress={() => router.push('/settings')}
           >
             <Ionicons name="settings-outline" size={32} color="#2d6a4f" />
