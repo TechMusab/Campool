@@ -49,6 +49,27 @@ export default function ProfileScreen() {
         return;
       }
 
+      // First try to get user data from stored login response
+      const storedUser = await AsyncStorage.getItem('campool_user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        const profileData = {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          studentId: userData.studentId,
+          whatsappNumber: userData.whatsappNumber,
+          isVerified: true, // Assume verified if logged in
+        };
+        setProfile(profileData);
+        setFormData({
+          name: profileData.name,
+          whatsappNumber: profileData.whatsappNumber,
+        });
+        setLoading(false);
+        return;
+      }
+
       // Try to load profile from API
       try {
         const response = await axios.get(`${API_BASE}/users/profile`, {
@@ -129,6 +150,7 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             await AsyncStorage.removeItem('campool_token');
+            await AsyncStorage.removeItem('campool_user');
             router.replace('/login');
           },
         },

@@ -53,6 +53,7 @@ export default function LoginScreen() {
       setLoading(true);
       const res = await axios.post(`${API_BASE}/api/auth/login`, { email, password });
       await AsyncStorage.setItem('campool_token', res.data.token);
+      await AsyncStorage.setItem('campool_user', JSON.stringify(res.data.user));
       router.replace('/dashboard');
     } catch (e: any) {
       const msg = e?.response?.data?.error || 'Login failed';
