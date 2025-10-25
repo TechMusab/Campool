@@ -35,7 +35,6 @@ async function requestOtp(req, res) {
                     serverSelectionTimeoutMS: 15000,
                     socketTimeoutMS: 45000,
                     maxPoolSize: 1, // Important for serverless
-                    serverSelectionRetryDelayMS: 5000,
                 });
                 console.log('✅ MongoDB connected successfully');
             } catch (connectError) {
@@ -103,7 +102,6 @@ async function verifyOtp(req, res) {
                     serverSelectionTimeoutMS: 15000,
                     socketTimeoutMS: 45000,
                     maxPoolSize: 1,
-                    serverSelectionRetryDelayMS: 5000,
                 });
                 console.log('✅ MongoDB connected for verification');
             } catch (connectError) {

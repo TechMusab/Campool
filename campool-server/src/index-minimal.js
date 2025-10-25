@@ -142,7 +142,6 @@ app.get('/test-db', async (req, res) => {
 				serverSelectionTimeoutMS: 15000,
 				socketTimeoutMS: 45000,
 				maxPoolSize: 1,
-				serverSelectionRetryDelayMS: 5000,
 			});
 			console.log('Connected to MongoDB');
 		}
