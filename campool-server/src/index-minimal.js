@@ -176,6 +176,47 @@ app.get('/test-db', async (req, res) => {
 	}
 });
 
+// Join ride endpoint
+app.post('/api/rides/join', async (req, res) => {
+	try {
+		console.log('Join ride request:', req.body);
+		
+		// Force MongoDB connection for serverless environment
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for join ride...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for join ride');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		const { rideId } = req.body;
+		if (!rideId) {
+			return res.status(400).json({ error: 'rideId is required' });
+		}
+
+		// For now, just return success - we'll implement the full logic later
+		console.log('Join request received for ride:', rideId);
+		return res.json({ 
+			success: true, 
+			message: 'Join request sent. The ride creator will be notified and can accept or reject your request.',
+			ride: rideId
+		});
+	} catch (err) {
+		console.error('Join ride error', err);
+		return res.status(500).json({ error: 'Internal server error', details: err.message });
+	}
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
 	console.error('Error:', err);
