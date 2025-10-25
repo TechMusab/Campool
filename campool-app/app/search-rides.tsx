@@ -15,9 +15,12 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RideCard, { Ride } from '../components/RideCard';
+import { statsService } from '../services/statsService';
+import { rideTrackingService } from '../services/rideTrackingService';
+import { useTheme } from '../contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app';
@@ -36,8 +39,7 @@ const UNIVERSITIES = [
 
 export default function SearchRidesScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
   
   const [startPoint, setStartPoint] = useState('');
   const [destination, setDestination] = useState('');
@@ -73,6 +75,14 @@ export default function SearchRidesScreen() {
   useEffect(() => {
     loadAllRides();
   }, []);
+
+  // Refresh ride status when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      // This will trigger RideCard components to re-check their status
+      loadAllRides();
+    }, [])
+  );
 
   const loadAllRides = async () => {
     try {
@@ -303,6 +313,7 @@ export default function SearchRidesScreen() {
               <RideCard 
                 ride={item} 
                 currentUserId={currentUserId}
+                // No callback needed - stats are updated in RideCard
               />
             )}
             showsVerticalScrollIndicator={false}

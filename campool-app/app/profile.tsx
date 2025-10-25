@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '@/config/api';
+import { useTheme } from '../contexts/ThemeContext';
 
 const API_BASE = API_CONFIG.BASE_URL;
 
@@ -29,6 +30,7 @@ interface UserProfile {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { isDark, colors } = useTheme();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);

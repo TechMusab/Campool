@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Notification {
   id: string;
@@ -28,6 +29,7 @@ interface Notification {
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { isDark, colors } = useTheme();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

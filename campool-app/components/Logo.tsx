@@ -27,7 +27,7 @@ export default function Logo({ size = 'medium', showText = true }: LogoProps) {
         <Ionicons name="car-sport" size={icon} color="#fff" />
       </LinearGradient>
       {showText && (
-        <Text style={[styles.logoText, { fontSize: text }]}>Campool</Text>
+        <Text style={[styles.logoText, { fontSize: text }]}>Hamraah</Text>
       )}
     </View>
   );

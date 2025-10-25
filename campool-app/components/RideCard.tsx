@@ -4,6 +4,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { statsService } from '../services/statsService';
+import { rideTrackingService, StartedRide } from '../services/rideTrackingService';
+import { useTheme } from '../contexts/ThemeContext';
+import { sharingService } from '../services/sharingService';
+import { gamificationService } from '../services/gamificationService';
+import { locationService } from '../services/locationService';
 
 export type Ride = {
   _id: string;
@@ -18,15 +24,34 @@ export type Ride = {
   driverId?: { name?: string; avgRating?: number; whatsappNumber?: string } | string;
 };
 
-export default function RideCard({ ride, currentUserId, onRideStarted }: { 
+export default function RideCard({ ride, currentUserId, onRideStarted, onRideCompleted }: { 
   ride: Ride; 
   currentUserId?: string;
   onRideStarted?: (rideCost: number, distance: number) => void;
+  onRideCompleted?: () => void;
 }) {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
   const [rideStarted, setRideStarted] = useState(false);
+  const [rideCompleted, setRideCompleted] = useState(false);
+
+  // Check if ride is already started on component mount
+  React.useEffect(() => {
+    const checkRideStatus = async () => {
+      const isStarted = await rideTrackingService.isRideStarted(ride._id);
+      setRideStarted(isStarted);
+      
+      // Check if ride is completed
+      if (isStarted) {
+        const startedRides = await rideTrackingService.getStartedRides();
+        const currentRide = startedRides.find(r => r.rideId === ride._id);
+        if (currentRide && currentRide.status === 'completed') {
+          setRideCompleted(true);
+        }
+      }
+    };
+    checkRideStatus();
+  }, [ride._id]);
   
   const driverName = typeof ride.driverId === 'object' && ride.driverId ? ride.driverId.name : 'Driver';
   const rating = typeof ride.driverId === 'object' && ride.driverId ? (ride.driverId as any).avgRating ?? 4.8 : 4.8;
@@ -36,7 +61,7 @@ export default function RideCard({ ride, currentUserId, onRideStarted }: {
   const isMyRide = currentUserId && typeof ride.driverId === 'object' && ride.driverId && ride.driverId._id === currentUserId;
   
   
-  const startRide = () => {
+  const startRide = async () => {
     Alert.alert(
       'Start Ride',
       'Are you ready to start this ride? This will notify the driver and other passengers.',
@@ -44,14 +69,37 @@ export default function RideCard({ ride, currentUserId, onRideStarted }: {
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Start Ride', 
-          onPress: () => {
+          onPress: async () => {
             setRideStarted(true);
             
-            // Update dashboard stats
-            if (onRideStarted) {
-              const distance = ride.distanceKm || 10; // Default distance if not provided
-              onRideStarted(perPassenger, distance);
-            }
+            // Update stats globally (only once)
+            const distance = ride.distanceKm || 10; // Default distance if not provided
+            await statsService.updateStatsAfterRideStart(perPassenger, distance);
+            
+            // Add to started rides tracking
+            const startedRide: StartedRide = {
+              rideId: ride._id,
+              startPoint: ride.startPoint,
+              destination: ride.destination,
+              date: ride.date,
+              time: ride.time,
+              cost: perPassenger,
+              distance: distance,
+              startedAt: new Date().toISOString(),
+              status: 'started',
+              driverInfo: {
+                name: driverName,
+                whatsappNumber: whatsappNumber || '',
+                rating: rating
+              }
+            };
+            await rideTrackingService.addStartedRide(startedRide);
+            
+            // Start location tracking
+            await locationService.startRideTracking(ride._id, 'current_user', []);
+            
+            // Don't call the callback to avoid double counting
+            // The stats are already updated above
             
             Alert.alert(
               'Ride Started! 🚗',
@@ -65,7 +113,7 @@ export default function RideCard({ ride, currentUserId, onRideStarted }: {
       ]
     );
   };
-
+  
   const openWhatsApp = () => {
     if (!whatsappNumber) {
       Alert.alert('Error', 'WhatsApp number not available');
@@ -76,6 +124,58 @@ export default function RideCard({ ride, currentUserId, onRideStarted }: {
     Linking.openURL(url).catch(() => {
       Alert.alert('Error', 'WhatsApp is not installed or number is invalid');
     });
+  };
+
+  const completeRide = async () => {
+    Alert.alert(
+      'Complete Ride',
+      'Have you reached your destination? This will mark the ride as completed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Complete Ride',
+          onPress: async () => {
+            setRideCompleted(true);
+            
+            // Update ride status to completed
+            await rideTrackingService.completeRide(ride._id);
+            
+            // Update stats for completed ride
+            await statsService.updateStatsAfterRideComplete();
+            
+            // Add gamification points
+            const distance = ride.distanceKm || 10;
+            await gamificationService.addRidePoints(perPassenger, distance);
+            
+            // Stop location tracking
+            await locationService.stopRideTracking(ride._id);
+            
+            // Call the callback to refresh dashboard
+            if (onRideCompleted) {
+              onRideCompleted();
+            }
+            
+            Alert.alert(
+              'Ride Completed! 🎉',
+              'Your ride has been marked as completed. Thank you for using Hamraah!',
+              [
+                { text: 'OK' }
+              ]
+            );
+          }
+        }
+      ]
+    );
+  };
+
+  const shareRide = async () => {
+    try {
+      const shareableRide = sharingService.createShareableRide(ride, driverName);
+      await sharingService.shareRide(shareableRide);
+    } catch (error) {
+      console.error('Error sharing ride:', error);
+      Alert.alert('Error', 'Failed to share ride. Please try again.');
+    }
   };
 
 
@@ -150,7 +250,19 @@ export default function RideCard({ ride, currentUserId, onRideStarted }: {
       </View>
 
       {/* Action Button */}
-      {!rideStarted ? (
+      {isMyRide ? (
+        <TouchableOpacity style={styles.myRideButton}>
+          <LinearGradient 
+            colors={["#6b7280", "#4b5563"]} 
+            start={{ x: 0, y: 0 }} 
+            end={{ x: 1, y: 0 }} 
+            style={styles.myRideGradient}
+          >
+            <Ionicons name="person-outline" size={20} color="#fff" />
+            <Text style={styles.myRideText}>Your Posted Ride</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      ) : !rideStarted ? (
         <TouchableOpacity onPress={startRide} style={styles.startRideButton}>
           <LinearGradient 
             colors={["#10b981", "#059669"]} 
@@ -162,19 +274,57 @@ export default function RideCard({ ride, currentUserId, onRideStarted }: {
             <Text style={styles.startRideText}>Start Ride</Text>
           </LinearGradient>
         </TouchableOpacity>
-      ) : (
-        <TouchableOpacity onPress={openWhatsApp} style={styles.whatsappButton}>
+      ) : rideCompleted ? (
+        <TouchableOpacity style={styles.completedButton}>
           <LinearGradient 
-            colors={["#25D366", "#128C7E"]} 
+            colors={["#10b981", "#059669"]} 
             start={{ x: 0, y: 0 }} 
             end={{ x: 1, y: 0 }} 
-            style={styles.whatsappGradient}
+            style={styles.completedGradient}
           >
-            <Ionicons name="logo-whatsapp" size={20} color="#fff" />
-            <Text style={styles.whatsappText}>Contact via WhatsApp</Text>
+            <Ionicons name="checkmark-circle" size={20} color="#fff" />
+            <Text style={styles.completedText}>Ride Completed</Text>
           </LinearGradient>
         </TouchableOpacity>
-      )}
+      ) : (
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity onPress={completeRide} style={styles.completeRideButton}>
+            <LinearGradient 
+              colors={["#f59e0b", "#d97706"]} 
+              start={{ x: 0, y: 0 }} 
+              end={{ x: 1, y: 0 }} 
+              style={styles.completeRideGradient}
+            >
+              <Ionicons name="flag" size={20} color="#fff" />
+              <Text style={styles.completeRideText}>Complete Ride</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        
+          <TouchableOpacity onPress={openWhatsApp} style={styles.whatsappButton}>
+            <LinearGradient 
+              colors={["#25D366", "#128C7E"]} 
+              start={{ x: 0, y: 0 }} 
+              end={{ x: 1, y: 0 }} 
+              style={styles.whatsappGradient}
+            >
+              <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+              <Text style={styles.whatsappText}>Contact Driver</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+        
+        <TouchableOpacity onPress={shareRide} style={styles.shareButton}>
+          <LinearGradient 
+            colors={["#8b5cf6", "#7c3aed"]} 
+            start={{ x: 0, y: 0 }} 
+            end={{ x: 1, y: 0 }} 
+            style={styles.shareGradient}
+          >
+            <Ionicons name="share-outline" size={20} color="#fff" />
+            <Text style={styles.shareText}>Share Ride</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
     </View>
   );
 }
@@ -381,6 +531,76 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   whatsappText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  myRideButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  myRideGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  myRideText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  completeRideButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  completeRideGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  completeRideText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  completedButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  completedGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  completedText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  shareButton: {
+    marginTop: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  shareGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  shareText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',

@@ -13,11 +13,14 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RideCard from '../components/RideCard';
 import { checkNetworkStatus } from '../config/api';
 import OfflineIndicator from '../components/OfflineIndicator';
+import { statsService } from '../services/statsService';
+import { rideTrackingService, StartedRide } from '../services/rideTrackingService';
+import { useTheme } from '../contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app';
@@ -42,8 +45,7 @@ interface RecentRide {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -57,10 +59,43 @@ export default function DashboardScreen() {
   });
   const [recentRides, setRecentRides] = useState<RecentRide[]>([]);
   const [userName, setUserName] = useState('Student');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  // Refresh stats and recent rides when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      const refreshData = async () => {
+        try {
+          const savedStats = await statsService.getStats();
+          setStats(savedStats);
+
+          // Load recent rides from tracking service
+          const recentStartedRides = await rideTrackingService.getRecentRides();
+          setRecentRides(recentStartedRides);
+        } catch (error) {
+          console.log('Error refreshing data:', error);
+        }
+      };
+      refreshData();
+    }, [])
+  );
+
+  // Function to refresh dashboard data
+  const refreshDashboard = async () => {
+    try {
+      const savedStats = await statsService.getStats();
+      setStats(savedStats);
+
+      const recentStartedRides = await rideTrackingService.getRecentRides();
+      setRecentRides(recentStartedRides);
+    } catch (error) {
+      console.log('Error refreshing dashboard:', error);
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -95,39 +130,40 @@ export default function DashboardScreen() {
         if (storedUser) {
           const userData = JSON.parse(storedUser);
           setUserName(userData.name || 'Student');
+          setCurrentUserId(userData.id);
         }
       } catch (error) {
         console.log('Error loading user data:', error);
       }
 
-      // Load stats
+      // Load stats from service
       try {
-        const statsResponse = await fetch(`${API_BASE}/api/stats/dashboard`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (statsResponse.ok) {
-          const statsData = await statsResponse.json();
-          setStats(statsData);
-        } else {
-          console.log('Stats API unavailable, using defaults');
+        const savedStats = await statsService.getStats();
+        setStats(savedStats);
+        
+        // Also try to load from API if available
+        try {
+          const statsResponse = await fetch(`${API_BASE}/api/stats/dashboard`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (statsResponse.ok) {
+            const statsData = await statsResponse.json();
+            setStats(statsData);
+          }
+        } catch (apiError) {
+          console.log('Stats API unavailable, using saved stats');
         }
       } catch (error) {
-        console.log('Stats API error:', error);
+        console.log('Stats service error:', error);
       }
 
-      // Load recent rides
+      // Load recent rides from tracking service
       try {
-        const ridesResponse = await fetch(`${API_BASE}/api/rides/recent`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (ridesResponse.ok) {
-          const ridesData = await ridesResponse.json();
-          setRecentRides(ridesData);
-        } else {
-          console.log('Recent rides API unavailable, using defaults');
-        }
+        const recentStartedRides = await rideTrackingService.getRecentRides();
+        setRecentRides(recentStartedRides);
       } catch (error) {
-        console.log('Recent rides API error:', error);
+        console.log('Error loading recent rides:', error);
+        setRecentRides([]);
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -142,13 +178,10 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
-  const updateStatsAfterRideStart = (rideCost: number, distance: number) => {
-    setStats(prevStats => ({
-      ...prevStats,
-      totalRides: prevStats.totalRides + 1,
-      totalSaved: prevStats.totalSaved + rideCost,
-      co2Saved: prevStats.co2Saved + (distance * 0.2), // Approximate CO2 saved per km
-    }));
+  const updateStatsAfterRideStart = async (rideCost: number, distance: number) => {
+    // Update stats in service
+    const updatedStats = await statsService.updateStatsAfterRideStart(rideCost, distance);
+    setStats(updatedStats);
   };
 
   const StatCard = ({ title, value, icon, color, gradient }: {
@@ -281,6 +314,18 @@ export default function DashboardScreen() {
               color="#f59e0b"
             />
             <QuickAction
+              title="Smart Recs"
+              icon="bulb-outline"
+              onPress={() => router.push('/recommendations')}
+              color="#8b5cf6"
+            />
+            <QuickAction
+              title="Achievements"
+              icon="trophy-outline"
+              onPress={() => router.push('/gamification')}
+              color="#f59e0b"
+            />
+            <QuickAction
               title="Settings"
               icon="settings-outline"
               onPress={() => router.push('/settings')}
@@ -299,42 +344,34 @@ export default function DashboardScreen() {
           </View>
           
           {recentRides.length > 0 ? (
-            recentRides.slice(0, 3).map((ride) => (
-              <View key={ride.id} style={[styles.recentRideCard, isDark && styles.recentRideCardDark]}>
-                <View style={styles.recentRideHeader}>
-                  <Text style={[styles.recentRideRoute, isDark && styles.recentRideRouteDark]}>
-                    {ride.startPoint} → {ride.destination}
-                  </Text>
-                  <View style={[
-                    styles.statusBadge, 
-                    ride.status === 'completed' ? styles.completedBadge : styles.inProgressBadge,
-                    isDark && (ride.status === 'completed' ? styles.completedBadgeDark : styles.inProgressBadgeDark)
-                  ]}>
-                    <Text style={[
-                      styles.statusText,
-                      ride.status === 'completed' ? styles.completedText : styles.inProgressText,
-                      isDark && (ride.status === 'completed' ? styles.completedTextDark : styles.inProgressTextDark)
-                    ]}>
-                      {ride.status === 'completed' ? 'Completed' : 'In Progress'}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.recentRideDetails}>
-                  <Text style={[styles.recentRideDate, isDark && styles.recentRideDateDark]}>
-                    {new Date(ride.date).toLocaleDateString()}
-                  </Text>
-                  <Text style={[styles.recentRideCost, isDark && styles.recentRideCostDark]}>
-                    Rs. {ride.cost}
-                  </Text>
-                  {ride.rating && (
-                    <View style={styles.ratingContainer}>
-                      <Ionicons name="star" size={14} color="#fbbf24" />
-                      <Text style={[styles.ratingText, isDark && styles.ratingTextDark]}>{ride.rating}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            ))
+            recentRides.slice(0, 3).map((ride) => {
+              // Convert StartedRide to Ride format for RideCard
+              const rideForCard = {
+                _id: ride.rideId,
+                startPoint: ride.startPoint,
+                destination: ride.destination,
+                date: ride.date,
+                time: ride.time,
+                availableSeats: 1,
+                costPerSeat: ride.cost,
+                distanceKm: ride.distance,
+                driverId: {
+                  _id: 'driver',
+                  name: ride.driverInfo.name,
+                  avgRating: ride.driverInfo.rating,
+                  whatsappNumber: ride.driverInfo.whatsappNumber
+                }
+              };
+              
+              return (
+                <RideCard 
+                  key={ride.rideId} 
+                  ride={rideForCard} 
+                  currentUserId={currentUserId}
+                  onRideCompleted={refreshDashboard}
+                />
+              );
+            })
           ) : (
             <View style={[styles.emptyState, isDark && styles.emptyStateDark]}>
               <Ionicons name="car-outline" size={48} color={isDark ? "#6b7280" : "#9ca3af"} />
@@ -542,101 +579,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   emptyTextDark: {
-    color: '#9ca3af',
-  },
-  recentRideCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  recentRideCardDark: {
-    backgroundColor: '#1f2937',
-    shadowOpacity: 0.3,
-  },
-  recentRideHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  recentRideRoute: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    flex: 1,
-  },
-  recentRideRouteDark: {
-    color: '#f9fafb',
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  completedBadge: {
-    backgroundColor: '#d1fae5',
-  },
-  completedBadgeDark: {
-    backgroundColor: '#064e3b',
-  },
-  inProgressBadge: {
-    backgroundColor: '#fef3c7',
-  },
-  inProgressBadgeDark: {
-    backgroundColor: '#78350f',
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  completedText: {
-    color: '#065f46',
-  },
-  completedTextDark: {
-    color: '#6ee7b7',
-  },
-  inProgressText: {
-    color: '#92400e',
-  },
-  inProgressTextDark: {
-    color: '#fbbf24',
-  },
-  recentRideDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  recentRideDate: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  recentRideDateDark: {
-    color: '#9ca3af',
-  },
-  recentRideCost: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#10b981',
-  },
-  recentRideCostDark: {
-    color: '#34d399',
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ratingText: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginLeft: 4,
-  },
-  ratingTextDark: {
     color: '#9ca3af',
   },
 });

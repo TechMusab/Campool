@@ -10,12 +10,14 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function HelpScreen() {
   const router = useRouter();
+  const { isDark, colors } = useTheme();
 
   const openEmail = () => {
-    Linking.openURL('mailto:support@campool.com');
+    Linking.openURL('mailto:support@hamraah.com');
   };
 
   const openPhone = () => {
@@ -23,7 +25,7 @@ export default function HelpScreen() {
   };
 
   const openWebsite = () => {
-    Linking.openURL('https://campool.com');
+    Linking.openURL('https://hamraah.com');
   };
 
   const HelpSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -143,7 +145,7 @@ export default function HelpScreen() {
           <HelpItem
             icon="mail-outline"
             title="Email Support"
-            description="support@campool.com"
+            description="support@hamraah.com"
             onPress={openEmail}
           />
           <HelpItem
@@ -162,9 +164,9 @@ export default function HelpScreen() {
 
         <HelpSection title="App Information">
           <View style={styles.appInfo}>
-            <Text style={styles.appInfoText}>Campool v1.0.0</Text>
+            <Text style={styles.appInfoText}>Hamraah v1.0.0</Text>
             <Text style={styles.appInfoSubtext}>Built with React Native & Expo</Text>
-            <Text style={styles.appInfoSubtext}>© 2024 Campool. All rights reserved.</Text>
+            <Text style={styles.appInfoSubtext}>© 2024 Hamraah. All rights reserved.</Text>
           </View>
         </HelpSection>
       </View>

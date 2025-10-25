@@ -16,13 +16,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../contexts/ThemeContext';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app';
 
 export default function PostRideScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
   
   const [startPoint, setStartPoint] = useState('');
   const [destination, setDestination] = useState('');

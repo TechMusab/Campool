@@ -7,12 +7,14 @@ import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/components/Logo';
 import { spacing, borderRadius, fontSize, colors } from '@/constants/spacing';
 import { useEffect } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-l1un.vercel.app';
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const UNIVERSITY_EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9-]+\.)*(edu|ac)\.[a-zA-Z]{2,}$/;
 
 export default function SignupScreen() {
+  const { isDark, colors } = useTheme();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -145,7 +147,7 @@ export default function SignupScreen() {
           <Logo size="large" showText={true} />
           <View style={{ height: spacing.md }} />
           <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join Campool to start saving money</Text>
+          <Text style={styles.subtitle}>Join Hamraah to start saving money</Text>
         </View>
 
         {/* Form Section */}

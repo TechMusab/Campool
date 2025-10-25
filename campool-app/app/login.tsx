@@ -7,10 +7,12 @@ import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/components/Logo';
 import { spacing, borderRadius, fontSize, colors } from '@/constants/spacing';
+import { useTheme } from '../contexts/ThemeContext';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app';
 
 export default function LoginScreen() {
+  const { isDark, colors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});

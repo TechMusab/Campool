@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_CONFIG } from '@/config/api';
+import { useTheme } from '../contexts/ThemeContext';
 
 const API_BASE = API_CONFIG.BASE_URL;
 
@@ -33,6 +34,7 @@ interface RideHistory {
 
 export default function RideHistoryScreen() {
   const router = useRouter();
+  const { isDark, colors } = useTheme();
   const [rides, setRides] = useState<RideHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
