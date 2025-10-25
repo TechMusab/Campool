@@ -22,17 +22,26 @@ function hashOtp(otp) {
 
 async function requestOtp(req, res) {
     try {
-        // Ensure MongoDB connection before proceeding
+        // Force MongoDB connection for serverless environment
         const mongoose = require('mongoose');
+        console.log('Current MongoDB state:', mongoose.connection.readyState);
+        
         if (mongoose.connection.readyState === 0) {
-            console.log('MongoDB not connected, attempting connection...');
-            await mongoose.connect(process.env.MONGO_URI, {
-                useNewUrlParser: true,
-                useUnifiedTopology: true,
-                serverSelectionTimeoutMS: 10000,
-                socketTimeoutMS: 45000,
-            });
-            console.log('MongoDB connected for OTP request');
+            console.log('Connecting to MongoDB...');
+            try {
+                await mongoose.connect(process.env.MONGO_URI, {
+                    useNewUrlParser: true,
+                    useUnifiedTopology: true,
+                    serverSelectionTimeoutMS: 15000,
+                    socketTimeoutMS: 45000,
+                    maxPoolSize: 1, // Important for serverless
+                    serverSelectionRetryDelayMS: 5000,
+                });
+                console.log('✅ MongoDB connected successfully');
+            } catch (connectError) {
+                console.error('❌ MongoDB connection failed:', connectError);
+                return res.status(500).json({ error: 'Database connection failed' });
+            }
         }
 
         const missing = requireFields(req.body, ['email']);
@@ -83,6 +92,26 @@ async function requestOtp(req, res) {
 
 async function verifyOtp(req, res) {
     try {
+        // Force MongoDB connection for serverless environment
+        const mongoose = require('mongoose');
+        if (mongoose.connection.readyState === 0) {
+            console.log('Connecting to MongoDB for OTP verification...');
+            try {
+                await mongoose.connect(process.env.MONGO_URI, {
+                    useNewUrlParser: true,
+                    useUnifiedTopology: true,
+                    serverSelectionTimeoutMS: 15000,
+                    socketTimeoutMS: 45000,
+                    maxPoolSize: 1,
+                    serverSelectionRetryDelayMS: 5000,
+                });
+                console.log('✅ MongoDB connected for verification');
+            } catch (connectError) {
+                console.error('❌ MongoDB connection failed:', connectError);
+                return res.status(500).json({ error: 'Database connection failed' });
+            }
+        }
+
         const missing = requireFields(req.body, ['email', 'otp']);
         if (missing) return res.status(400).json({ error: `Missing field: ${missing}` });
 

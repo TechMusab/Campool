@@ -130,28 +130,39 @@ app.get('/diagnostic', (req, res) => {
 // Test MongoDB connection endpoint
 app.get('/test-db', async (req, res) => {
 	try {
-		// Try to connect if not already connected
+		console.log('Testing MongoDB connection...');
+		console.log('Current state:', mongoose.connection.readyState);
+		
+		// Force connection for serverless
 		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB...');
 			await mongoose.connect(process.env.MONGO_URI, {
 				useNewUrlParser: true,
 				useUnifiedTopology: true,
-				serverSelectionTimeoutMS: 5000,
+				serverSelectionTimeoutMS: 15000,
 				socketTimeoutMS: 45000,
+				maxPoolSize: 1,
+				serverSelectionRetryDelayMS: 5000,
 			});
+			console.log('Connected to MongoDB');
 		}
 		
 		// Test a simple database operation
 		const testCollection = mongoose.connection.db.collection('test');
-		await testCollection.insertOne({ 
+		const result = await testCollection.insertOne({ 
 			test: 'connection', 
 			timestamp: new Date(),
-			message: 'Database connection successful!'
+			message: 'Database connection successful!',
+			serverless: true
 		});
+		
+		console.log('Database write successful:', result.insertedId);
 		
 		res.json({ 
 			status: 'success', 
 			message: 'Database connection and write test successful!',
 			connectionState: mongoose.connection.readyState,
+			insertedId: result.insertedId,
 			timestamp: new Date().toISOString()
 		});
 	} catch (error) {
@@ -160,7 +171,8 @@ app.get('/test-db', async (req, res) => {
 			status: 'error', 
 			message: 'Database test failed',
 			error: error.message,
-			connectionState: mongoose.connection.readyState
+			connectionState: mongoose.connection.readyState,
+			code: error.code
 		});
 	}
 });
