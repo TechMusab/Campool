@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, ActivityIndicator, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -18,14 +18,16 @@ export type Ride = {
   driverId?: { name?: string; avgRating?: number; whatsappNumber?: string } | string;
 };
 
-export default function RideCard({ ride, onJoin, currentUserId, showJoinButton = true }: { 
+export default function RideCard({ ride, currentUserId, onRideStarted }: { 
   ride: Ride; 
-  onJoin?: (ride: Ride) => void; 
   currentUserId?: string;
-  showJoinButton?: boolean;
+  onRideStarted?: (rideCost: number, distance: number) => void;
 }) {
   const router = useRouter();
-  const [joining, setJoining] = useState(false);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const [rideStarted, setRideStarted] = useState(false);
+  
   const driverName = typeof ride.driverId === 'object' && ride.driverId ? ride.driverId.name : 'Driver';
   const rating = typeof ride.driverId === 'object' && ride.driverId ? (ride.driverId as any).avgRating ?? 4.8 : 4.8;
   const whatsappNumber = typeof ride.driverId === 'object' && ride.driverId ? ride.driverId.whatsappNumber : null;
@@ -34,6 +36,36 @@ export default function RideCard({ ride, onJoin, currentUserId, showJoinButton =
   const isMyRide = currentUserId && typeof ride.driverId === 'object' && ride.driverId && ride.driverId._id === currentUserId;
   
   
+  const startRide = () => {
+    Alert.alert(
+      'Start Ride',
+      'Are you ready to start this ride? This will notify the driver and other passengers.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Start Ride', 
+          onPress: () => {
+            setRideStarted(true);
+            
+            // Update dashboard stats
+            if (onRideStarted) {
+              const distance = ride.distanceKm || 10; // Default distance if not provided
+              onRideStarted(perPassenger, distance);
+            }
+            
+            Alert.alert(
+              'Ride Started! 🚗',
+              'Your ride has been started. You can now contact the driver via WhatsApp.',
+              [
+                { text: 'OK' }
+              ]
+            );
+          }
+        }
+      ]
+    );
+  };
+
   const openWhatsApp = () => {
     if (!whatsappNumber) {
       Alert.alert('Error', 'WhatsApp number not available');
@@ -47,160 +79,310 @@ export default function RideCard({ ride, onJoin, currentUserId, showJoinButton =
   };
 
 
-  const joinRide = async () => {
-    if (isMyRide) {
-      Alert.alert('Cannot Join', 'You cannot join your own ride');
-      return;
-    }
-
-    try {
-      setJoining(true);
-      
-      // Try API first, but don't fail if it doesn't work
-      try {
-        const token = await AsyncStorage.getItem('campool_token');
-        const response = await fetch(`${process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app'}/api/rides/join`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ rideId: ride._id }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          Alert.alert(
-            'Join Request Sent! 🚗',
-            'Your request to join this ride has been sent to the ride creator. You will be notified when they respond to your request.',
-            [
-              { 
-                text: 'Contact via WhatsApp',
-                onPress: () => {
-                  const whatsappNumber = typeof ride.driverId === 'object' && ride.driverId ? ride.driverId.whatsappNumber : null;
-                  if (whatsappNumber) {
-                    const message = encodeURIComponent(`Hi! I'm interested in joining your ride from ${ride.startPoint} to ${ride.destination} on ${new Date(ride.date).toLocaleDateString()}. Please let me know if there's a seat available.`);
-                    const url = `whatsapp://send?phone=${whatsappNumber}&text=${message}`;
-                    Linking.openURL(url).catch(() => {
-                      Alert.alert('Error', 'WhatsApp is not installed or number is invalid');
-                    });
-                  }
-                }
-              },
-              { text: 'OK' }
-            ]
-          );
-          if (onJoin) onJoin(ride);
-          return;
-        }
-      } catch (apiError) {
-        console.log('API not available, using direct WhatsApp approach');
-      }
-      
-      // Fallback: Direct WhatsApp approach (always works)
-      Alert.alert(
-        'Join Ride Request! 🚗',
-        'Contact the ride creator directly via WhatsApp to join this ride.',
-        [
-          { 
-            text: 'Open WhatsApp',
-            onPress: () => {
-              const whatsappNumber = typeof ride.driverId === 'object' && ride.driverId ? ride.driverId.whatsappNumber : null;
-              
-              if (whatsappNumber) {
-                const message = encodeURIComponent(`Hi! I'm interested in joining your ride from ${ride.startPoint} to ${ride.destination} on ${new Date(ride.date).toLocaleDateString()}. Please let me know if there's a seat available.`);
-                const url = `whatsapp://send?phone=${whatsappNumber}&text=${message}`;
-                Linking.openURL(url).catch(() => {
-                  Alert.alert('Error', 'WhatsApp is not installed or number is invalid');
-                });
-              } else {
-                Alert.alert('Error', 'WhatsApp number not available for this ride');
-              }
-            }
-          },
-          { 
-            text: 'Cancel',
-            style: 'cancel'
-          }
-        ]
-      );
-      
-      if (onJoin) onJoin(ride);
-    } catch (error) {
-      console.error('Error joining ride:', error);
-      Alert.alert('Error', 'Failed to join ride. Please try again.');
-    } finally {
-      setJoining(false);
-    }
-  };
 
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>{driverName} • ⭐ {Number(rating).toFixed(1)}</Text>
-      <Text style={styles.route}>{ride.startPoint} → {ride.destination}</Text>
-      <Text style={styles.meta}>{new Date(ride.date).toLocaleDateString()} • {ride.time}</Text>
-      <Text style={styles.meta}>Seats: {ride.availableSeats}</Text>
-      <View style={{ height: 6 }} />
-      <Text style={styles.costHighlight}>Cost Per Passenger: Rs.{perPassenger.toFixed(2)}</Text>
-      <Text style={styles.meta}>Total Ride Cost: Rs.{total.toFixed(2)}</Text>
-      <View style={{ height: 8 }} />
-      
-      {/* Action Buttons Row */}
-      <View style={styles.buttonRow}>
-        <TouchableOpacity onPress={openWhatsApp} style={styles.whatsappButton}>
-          <LinearGradient colors={["#25D366", "#128C7E"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.whatsappGradient}>
-            <Ionicons name="logo-whatsapp" size={18} color="#fff" />
-            <Text style={styles.whatsappText}>WhatsApp</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-        
-        
-        {showJoinButton && !isMyRide && (
-          <TouchableOpacity 
-            onPress={joinRide} 
-            style={styles.joinButton}
-            disabled={joining}
-          >
-            <LinearGradient colors={["#10b981", "#059669"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.button}>
-              {joining ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <>
-                  <Ionicons name="person-add-outline" size={18} color="#fff" />
-                  <Text style={styles.buttonText}>Join Ride</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-        
-        
+    <View style={[styles.card, isDark && styles.cardDark]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.driverInfo}>
+          <View style={[styles.avatar, isDark && styles.avatarDark]}>
+            <Ionicons name="person" size={20} color={isDark ? "#9ca3af" : "#6b7280"} />
+          </View>
+          <View style={styles.driverDetails}>
+            <Text style={[styles.driverName, isDark && styles.driverNameDark]}>{driverName}</Text>
+            <View style={styles.ratingContainer}>
+              <Ionicons name="star" size={14} color="#fbbf24" />
+              <Text style={[styles.rating, isDark && styles.ratingDark]}>{Number(rating).toFixed(1)}</Text>
+            </View>
+          </View>
+        </View>
         {isMyRide && (
-          <TouchableOpacity style={styles.myRideButton}>
-            <LinearGradient colors={["#6b7280", "#4b5563"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.button}>
-              <Ionicons name="person-outline" size={18} color="#fff" />
-              <Text style={styles.buttonText}>My Ride</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          <View style={[styles.myRideBadge, isDark && styles.myRideBadgeDark]}>
+            <Text style={[styles.myRideText, isDark && styles.myRideTextDark]}>My Ride</Text>
+          </View>
         )}
       </View>
+
+      {/* Route */}
+      <View style={styles.routeContainer}>
+        <View style={styles.routePoint}>
+          <View style={[styles.routeDot, styles.startDot]} />
+          <Text style={[styles.routeText, isDark && styles.routeTextDark]}>{ride.startPoint}</Text>
+        </View>
+        <View style={styles.routeLine} />
+        <View style={styles.routePoint}>
+          <View style={[styles.routeDot, styles.endDot]} />
+          <Text style={[styles.routeText, isDark && styles.routeTextDark]}>{ride.destination}</Text>
+        </View>
+      </View>
+
+      {/* Details */}
+      <View style={styles.detailsContainer}>
+        <View style={styles.detailRow}>
+          <Ionicons name="calendar-outline" size={16} color={isDark ? "#9ca3af" : "#6b7280"} />
+          <Text style={[styles.detailText, isDark && styles.detailTextDark]}>
+            {new Date(ride.date).toLocaleDateString()}
+          </Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Ionicons name="time-outline" size={16} color={isDark ? "#9ca3af" : "#6b7280"} />
+          <Text style={[styles.detailText, isDark && styles.detailTextDark]}>{ride.time}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Ionicons name="people-outline" size={16} color={isDark ? "#9ca3af" : "#6b7280"} />
+          <Text style={[styles.detailText, isDark && styles.detailTextDark]}>
+            {ride.availableSeats} seat{ride.availableSeats !== 1 ? 's' : ''} available
+          </Text>
+        </View>
+      </View>
+
+      {/* Cost */}
+      <View style={[styles.costContainer, isDark && styles.costContainerDark]}>
+        <View style={styles.costRow}>
+          <Text style={[styles.costLabel, isDark && styles.costLabelDark]}>Per Passenger</Text>
+          <Text style={[styles.costValue, isDark && styles.costValueDark]}>Rs. {perPassenger.toFixed(2)}</Text>
+        </View>
+        <View style={styles.costRow}>
+          <Text style={[styles.costLabel, isDark && styles.costLabelDark]}>Total Cost</Text>
+          <Text style={[styles.totalCost, isDark && styles.totalCostDark]}>Rs. {total.toFixed(2)}</Text>
+        </View>
+      </View>
+
+      {/* Action Button */}
+      {!rideStarted ? (
+        <TouchableOpacity onPress={startRide} style={styles.startRideButton}>
+          <LinearGradient 
+            colors={["#10b981", "#059669"]} 
+            start={{ x: 0, y: 0 }} 
+            end={{ x: 1, y: 0 }} 
+            style={styles.startRideGradient}
+          >
+            <Ionicons name="play-circle-outline" size={20} color="#fff" />
+            <Text style={styles.startRideText}>Start Ride</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity onPress={openWhatsApp} style={styles.whatsappButton}>
+          <LinearGradient 
+            colors={["#25D366", "#128C7E"]} 
+            start={{ x: 0, y: 0 }} 
+            end={{ x: 1, y: 0 }} 
+            style={styles.whatsappGradient}
+          >
+            <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+            <Text style={styles.whatsappText}>Contact via WhatsApp</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: 'white', padding: 14, borderRadius: 12, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
-  title: { fontWeight: '700' },
-  route: { marginTop: 6 },
-  meta: { color: '#555', marginTop: 4 },
-  costHighlight: { color: '#2d6a4f', fontWeight: '700', marginTop: 4 },
-  buttonRow: { flexDirection: 'row', gap: 8 },
-  whatsappButton: { flex: 1 },
-  whatsappGradient: { paddingVertical: 10, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  whatsappText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
-  joinButton: { flex: 1 },
-  myRideButton: { flex: 1 },
-  button: { paddingVertical: 10, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  buttonText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    marginBottom: 16,
+    padding: 20,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  cardDark: {
+    backgroundColor: '#1f2937',
+    shadowOpacity: 0.3,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  driverInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  avatarDark: {
+    backgroundColor: '#374151',
+  },
+  driverDetails: {
+    flex: 1,
+  },
+  driverName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  driverNameDark: {
+    color: '#f9fafb',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rating: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginLeft: 4,
+  },
+  ratingDark: {
+    color: '#9ca3af',
+  },
+  myRideBadge: {
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  myRideBadgeDark: {
+    backgroundColor: '#1e3a8a',
+  },
+  myRideText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1d4ed8',
+  },
+  myRideTextDark: {
+    color: '#93c5fd',
+  },
+  routeContainer: {
+    marginBottom: 16,
+  },
+  routePoint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  routeDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  startDot: {
+    backgroundColor: '#10b981',
+  },
+  endDot: {
+    backgroundColor: '#ef4444',
+  },
+  routeLine: {
+    width: 2,
+    height: 20,
+    backgroundColor: '#e5e7eb',
+    marginLeft: 5,
+    marginBottom: 8,
+  },
+  routeText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#374151',
+    flex: 1,
+  },
+  routeTextDark: {
+    color: '#f9fafb',
+  },
+  detailsContainer: {
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginLeft: 8,
+  },
+  detailTextDark: {
+    color: '#9ca3af',
+  },
+  costContainer: {
+    backgroundColor: '#f0f9ff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  costContainerDark: {
+    backgroundColor: '#1e3a8a',
+    borderColor: '#3b82f6',
+  },
+  costRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  costLabel: {
+    fontSize: 14,
+    color: '#0369a1',
+    fontWeight: '500',
+  },
+  costLabelDark: {
+    color: '#93c5fd',
+  },
+  costValue: {
+    fontSize: 16,
+    color: '#0369a1',
+    fontWeight: '600',
+  },
+  costValueDark: {
+    color: '#93c5fd',
+  },
+  totalCost: {
+    fontSize: 18,
+    color: '#0369a1',
+    fontWeight: 'bold',
+  },
+  totalCostDark: {
+    color: '#93c5fd',
+  },
+  startRideButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  startRideGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  startRideText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  whatsappButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  whatsappGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  whatsappText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 }); 

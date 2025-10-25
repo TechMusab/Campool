@@ -9,6 +9,7 @@ import {
   Alert,
   Dimensions,
   RefreshControl,
+  useColorScheme,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,6 +42,9 @@ interface RecentRide {
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
@@ -145,7 +149,7 @@ export default function DashboardScreen() {
     color: string;
     gradient: [string, string];
   }) => (
-    <View style={styles.statCard}>
+    <View style={[styles.statCard, isDark && styles.statCardDark]}>
       <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGradient}>
         <Ionicons name={icon as any} size={24} color="white" />
         <Text style={styles.statValue}>{value}</Text>
@@ -160,25 +164,25 @@ export default function DashboardScreen() {
     onPress: () => void;
     color?: string;
   }) => (
-    <TouchableOpacity style={styles.quickAction} onPress={onPress}>
+    <TouchableOpacity style={[styles.quickAction, isDark && styles.quickActionDark]} onPress={onPress}>
       <View style={[styles.quickActionIcon, { backgroundColor: color + '20' }]}>
         <Ionicons name={icon as any} size={28} color={color} />
       </View>
-      <Text style={styles.quickActionText}>{title}</Text>
+      <Text style={[styles.quickActionText, isDark && styles.quickActionTextDark]}>{title}</Text>
     </TouchableOpacity>
   );
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, isDark && styles.loadingContainerDark]}>
         <ActivityIndicator size="large" color="#2d6a4f" />
-        <Text style={styles.loadingText}>Loading your dashboard...</Text>
+        <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>Loading your dashboard...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDark && styles.containerDark]}>
       <OfflineIndicator isVisible={isOffline} />
       
       <ScrollView
@@ -190,14 +194,15 @@ export default function DashboardScreen() {
       >
         {/* Header */}
         <LinearGradient
-          colors={['#667eea', '#764ba2']}
+          colors={isDark ? ['#1a1a1a', '#2d2d2d'] : ['#667eea', '#764ba2']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.header}
         >
           <View style={styles.headerContent}>
             <View>
-              <Text style={styles.greeting}>Hello,</Text>
+              <Text style={styles.greeting}>Welcome to</Text>
+              <Text style={styles.appName}>Hamraah</Text>
               <Text style={styles.userName}>{userName}</Text>
             </View>
             <TouchableOpacity
@@ -211,7 +216,7 @@ export default function DashboardScreen() {
 
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
-          <Text style={styles.sectionTitle}>Your Ride Stats</Text>
+          <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>Your Ride Stats</Text>
           <View style={styles.statsGrid}>
             <StatCard
               title="Total Rides"
@@ -246,7 +251,7 @@ export default function DashboardScreen() {
 
         {/* Quick Actions */}
         <View style={styles.quickActionsContainer}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
             <QuickAction
               title="Post Ride"
@@ -261,16 +266,16 @@ export default function DashboardScreen() {
               color="#3b82f6"
             />
             <QuickAction
-              title="Track Rides"
-              icon="location-outline"
-              onPress={() => router.push('/ride-tracking')}
-              color="#8b5cf6"
-            />
-            <QuickAction
               title="Ride History"
               icon="time-outline"
               onPress={() => router.push('/ride-history')}
               color="#f59e0b"
+            />
+            <QuickAction
+              title="Settings"
+              icon="settings-outline"
+              onPress={() => router.push('/settings')}
+              color="#6b7280"
             />
           </View>
         </View>
@@ -278,7 +283,7 @@ export default function DashboardScreen() {
         {/* Recent Rides */}
         <View style={styles.recentRidesContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Rides</Text>
+            <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>Recent Rides</Text>
             <TouchableOpacity onPress={() => router.push('/ride-history')}>
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
@@ -289,10 +294,10 @@ export default function DashboardScreen() {
               <RideCard key={ride.id} ride={ride} />
             ))
           ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="car-outline" size={48} color="#9ca3af" />
-              <Text style={styles.emptyTitle}>No rides yet</Text>
-              <Text style={styles.emptyText}>
+            <View style={[styles.emptyState, isDark && styles.emptyStateDark]}>
+              <Ionicons name="car-outline" size={48} color={isDark ? "#6b7280" : "#9ca3af"} />
+              <Text style={[styles.emptyTitle, isDark && styles.emptyTitleDark]}>No rides yet</Text>
+              <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
                 Start by posting a ride or finding one to join!
               </Text>
             </View>
@@ -308,16 +313,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
+  containerDark: {
+    backgroundColor: '#0f0f0f',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f8fafc',
   },
+  loadingContainerDark: {
+    backgroundColor: '#0f0f0f',
+  },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
     color: '#6b7280',
+  },
+  loadingTextDark: {
+    color: '#9ca3af',
   },
   scrollView: {
     flex: 1,
@@ -337,10 +351,15 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 4,
   },
-  userName: {
-    fontSize: 24,
+  appName: {
+    fontSize: 28,
     fontWeight: 'bold',
     color: 'white',
+    marginBottom: 4,
+  },
+  userName: {
+    fontSize: 18,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   profileButton: {
     padding: 8,
@@ -353,6 +372,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1f2937',
     marginBottom: 16,
+  },
+  sectionTitleDark: {
+    color: '#f9fafb',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -369,6 +391,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
+  },
+  statCardDark: {
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
   },
   statGradient: {
     padding: 20,
@@ -408,6 +434,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
+  quickActionDark: {
+    backgroundColor: '#1f2937',
+  },
   quickActionIcon: {
     width: 56,
     height: 56,
@@ -421,6 +450,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
     textAlign: 'center',
+  },
+  quickActionTextDark: {
+    color: '#f9fafb',
   },
   recentRidesContainer: {
     paddingHorizontal: 20,
@@ -448,6 +480,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
+  emptyStateDark: {
+    backgroundColor: '#1f2937',
+  },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -455,10 +490,16 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
+  emptyTitleDark: {
+    color: '#f9fafb',
+  },
   emptyText: {
     fontSize: 14,
     color: '#6b7280',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  emptyTextDark: {
+    color: '#9ca3af',
   },
 });

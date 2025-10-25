@@ -1,21 +1,47 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, FlatList, ActivityIndicator, ScrollView, TouchableOpacity, Platform, Alert } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  StyleSheet, 
+  FlatList, 
+  ActivityIndicator, 
+  TouchableOpacity, 
+  Platform, 
+  Alert,
+  useColorScheme,
+  Dimensions
+} from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import axios from 'axios';
-import RideCard, { Ride } from '@/components/RideCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Logo from '@/components/Logo';
-import { spacing, borderRadius, fontSize, colors } from '@/constants/spacing';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import RideCard, { Ride } from '../components/RideCard';
 
+const { width } = Dimensions.get('window');
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app';
+
+// University options
+const UNIVERSITIES = [
+  'NUST',
+  'FAST',
+  'COMSATS',
+  'LUMS',
+  'IBA',
+  'UET',
+  'PIEAS',
+  'Other'
+];
 
 export default function SearchRidesScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  
   const [startPoint, setStartPoint] = useState('');
   const [destination, setDestination] = useState('');
+  const [university, setUniversity] = useState('');
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [showDate, setShowDate] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -23,6 +49,7 @@ export default function SearchRidesScreen() {
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [showAllRides, setShowAllRides] = useState(true);
 
   // Load token and user ID on mount
   useEffect(() => {
@@ -30,7 +57,6 @@ export default function SearchRidesScreen() {
       const t = await AsyncStorage.getItem('campool_token');
       setToken(t);
       
-      // Load current user ID
       try {
         const storedUser = await AsyncStorage.getItem('campool_user');
         if (storedUser) {
@@ -43,36 +69,118 @@ export default function SearchRidesScreen() {
     })();
   }, []);
 
-  async function onSearch() {
+  // Load all rides on mount
+  useEffect(() => {
+    loadAllRides();
+  }, []);
+
+  const loadAllRides = async () => {
     try {
       setLoading(true);
+      const res = await fetch(`${API_BASE}/api/rides/search`);
+      if (res.ok) {
+        const data = await res.json();
+        setResults(data.items || []);
+        setShowAllRides(true);
+      }
+    } catch (error) {
+      console.log('Error loading rides:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onSearch = async () => {
+    try {
+      setLoading(true);
+      
+      // If no search criteria, show all rides
+      if (!startPoint && !destination && !university && !date) {
+        await loadAllRides();
+        setSearchPerformed(false);
+        setShowAllRides(true);
+        return;
+      }
+      
       const params: Record<string, string> = {};
       if (startPoint) params.startPoint = startPoint;
       if (destination) params.destination = destination;
+      if (university) params.university = university;
       if (date) params.datetime = date.toISOString();
-      const res = await axios.get(`${API_BASE}/api/rides/search`, { params });
-      setResults(res.data.items || []);
-      setSearchPerformed(true); // Hide search form after search
-    } catch (e) {
+      
+      const queryString = new URLSearchParams(params).toString();
+      const res = await fetch(`${API_BASE}/api/rides/search?${queryString}`);
+      
+      if (res.ok) {
+        const data = await res.json();
+        let filteredResults = data.items || [];
+        
+        // Client-side filtering for university if backend doesn't support it
+        if (university && university !== 'Other') {
+          filteredResults = filteredResults.filter((ride: any) => {
+            // Check if ride has university info or if it matches the selected university
+            return ride.university === university || 
+                   ride.startPoint.toLowerCase().includes(university.toLowerCase()) ||
+                   ride.destination.toLowerCase().includes(university.toLowerCase());
+          });
+        }
+        
+        setResults(filteredResults);
+        setSearchPerformed(true);
+        setShowAllRides(false);
+      }
+    } catch (error) {
+      console.log('Search error:', error);
       setResults([]);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  function resetSearch() {
+  const resetSearch = () => {
     setStartPoint('');
     setDestination('');
+    setUniversity('');
     setDate(undefined);
     setSearchPerformed(false);
-    setResults([]);
-  }
+    setShowAllRides(true);
+    loadAllRides();
+  };
+
+  const UniversitySelector = () => (
+    <View style={styles.universityContainer}>
+      <Text style={[styles.label, isDark && styles.labelDark]}>University</Text>
+      <View style={styles.universityGrid}>
+        {UNIVERSITIES.map((uni) => (
+          <TouchableOpacity
+            key={uni}
+            style={[
+              styles.universityChip,
+              university === uni && styles.universityChipSelected,
+              isDark && styles.universityChipDark,
+              university === uni && isDark && styles.universityChipSelectedDark
+            ]}
+            onPress={() => setUniversity(uni)}
+          >
+            <Text style={[
+              styles.universityChipText,
+              university === uni && styles.universityChipTextSelected,
+              isDark && styles.universityChipTextDark,
+              university === uni && isDark && styles.universityChipTextSelectedDark
+            ]}>
+              {uni}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDark && styles.containerDark]}>
       {/* Header */}
       <LinearGradient
-        colors={['#2d6a4f', '#1b9aaa']}
+        colors={isDark ? ['#1a1a1a', '#2d2d2d'] : ['#667eea', '#764ba2']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -85,7 +193,9 @@ export default function SearchRidesScreen() {
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Find a Ride</Text>
-          <Text style={styles.headerSubtitle}>Search for available rides</Text>
+          <Text style={styles.headerSubtitle}>
+            {showAllRides ? 'All available rides' : 'Search results'}
+          </Text>
         </View>
         <TouchableOpacity
           onPress={() => router.push('/post-ride')}
@@ -95,124 +205,164 @@ export default function SearchRidesScreen() {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* Search Form - Hidden after search */}
-      {!searchPerformed && (
-        <View style={styles.searchForm}>
-          <View style={styles.inputWrapper}>
-            <Text style={styles.label}>From</Text>
-            <View style={styles.inputRow}>
-              <Ionicons name="location-outline" size={20} color={colors.textSecondary} style={styles.icon} />
-              <TextInput 
-                placeholder="Start location" 
-                placeholderTextColor={colors.textMuted}
-                style={styles.input} 
-                value={startPoint} 
-                onChangeText={setStartPoint}
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputWrapper}>
-            <Text style={styles.label}>To</Text>
-            <View style={styles.inputRow}>
-              <Ionicons name="flag-outline" size={20} color={colors.textSecondary} style={styles.icon} />
-              <TextInput 
-                placeholder="Destination" 
-                placeholderTextColor={colors.textMuted}
-                style={styles.input} 
-                value={destination} 
-                onChangeText={setDestination}
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputWrapper}>
-            <Text style={styles.label}>Date (Optional)</Text>
-            <TouchableOpacity onPress={() => setShowDate(true)} style={styles.inputRow}> 
-              <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} style={styles.icon} />
-              <Text style={[styles.input, { paddingVertical: spacing.xs }]}>
-                {date ? date.toDateString() : 'Any date'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {showDate && (
-            <DateTimePicker
-              value={date || new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(e, selected) => {
-                setShowDate(false);
-                if (selected) setDate(selected);
-              }}
+      {/* Search Form */}
+      <View style={[styles.searchForm, isDark && styles.searchFormDark]}>
+        <View style={styles.searchRow}>
+          <View style={styles.inputContainer}>
+            <Ionicons name="location-outline" size={20} color={isDark ? "#9ca3af" : "#6b7280"} />
+            <TextInput
+              style={[styles.input, isDark && styles.inputDark]}
+              placeholder="From"
+              placeholderTextColor={isDark ? "#6b7280" : "#9ca3af"}
+              value={startPoint}
+              onChangeText={setStartPoint}
             />
-          )}
+          </View>
+          <View style={styles.inputContainer}>
+            <Ionicons name="location" size={20} color={isDark ? "#9ca3af" : "#6b7280"} />
+            <TextInput
+              style={[styles.input, isDark && styles.inputDark]}
+              placeholder="To"
+              placeholderTextColor={isDark ? "#6b7280" : "#9ca3af"}
+              value={destination}
+              onChangeText={setDestination}
+            />
+          </View>
+        </View>
 
-          <TouchableOpacity onPress={onSearch} style={styles.buttonWrapper}>
-            <LinearGradient colors={[colors.primary, colors.secondary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.button}>
-              <Ionicons name="search-outline" size={20} color={colors.white} />
-              <Text style={styles.buttonText}>Search Rides</Text>
-            </LinearGradient>
+        <UniversitySelector />
+
+        <View style={styles.dateContainer}>
+          <TouchableOpacity
+            style={[styles.dateButton, isDark && styles.dateButtonDark]}
+            onPress={() => setShowDate(true)}
+          >
+            <Ionicons name="calendar-outline" size={20} color={isDark ? "#9ca3af" : "#6b7280"} />
+            <Text style={[styles.dateText, isDark && styles.dateTextDark]}>
+              {date ? date.toLocaleDateString() : 'Select Date'}
+            </Text>
           </TouchableOpacity>
         </View>
-      )}
+
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[styles.searchButton, isDark && styles.searchButtonDark]}
+            onPress={onSearch}
+            disabled={loading}
+          >
+            <LinearGradient
+              colors={isDark ? ['#374151', '#1f2937'] : ['#3b82f6', '#1d4ed8']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.searchButtonGradient}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <>
+                  <Ionicons name="search" size={20} color="white" />
+                  <Text style={styles.searchButtonText}>Search</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.resetButton, isDark && styles.resetButtonDark]}
+            onPress={resetSearch}
+          >
+            <Ionicons name="refresh" size={20} color={isDark ? "#9ca3af" : "#6b7280"} />
+            <Text style={[styles.resetButtonText, isDark && styles.resetButtonTextDark]}>Reset</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* Results */}
       <View style={styles.resultsContainer}>
+        <View style={styles.resultsHeader}>
+          <Text style={[styles.resultsTitle, isDark && styles.resultsTitleDark]}>
+            {showAllRides ? 'All Available Rides' : 'Search Results'}
+          </Text>
+          <Text style={[styles.resultsCount, isDark && styles.resultsCountDark]}>
+            {results.length} ride{results.length !== 1 ? 's' : ''} found
+          </Text>
+        </View>
+
         {loading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Searching for rides...</Text>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#3b82f6" />
+            <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
+              {showAllRides ? 'Loading rides...' : 'Searching...'}
+            </Text>
           </View>
-        ) : results.length === 0 ? (
-          <View style={styles.centerContainer}>
-            <Ionicons name="car-outline" size={64} color={colors.textLight} />
-            <Text style={styles.emptyText}>No rides found</Text>
-            <Text style={styles.emptySubtext}>Try adjusting your search criteria</Text>
-          </View>
+        ) : results.length > 0 ? (
+          <FlatList
+            data={results}
+            keyExtractor={(item) => item._id}
+            renderItem={({ item }) => (
+              <RideCard 
+                ride={item} 
+                currentUserId={currentUserId}
+              />
+            )}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.ridesList}
+          />
         ) : (
-          <>
-            <View style={styles.resultsHeader}>
-              <Text style={styles.resultsCount}>
-                {results.length} ride{results.length !== 1 ? 's' : ''} found
-              </Text>
-              <TouchableOpacity onPress={resetSearch} style={styles.resetButton}>
-                <Ionicons name="search-outline" size={16} color={colors.primary} />
-                <Text style={styles.resetButtonText}>Search</Text>
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={results}
-              keyExtractor={(item) => item._id}
-              renderItem={({ item }) => <RideCard ride={item} currentUserId={currentUserId} />}
-              showsVerticalScrollIndicator={false}
-            />
-          </>
+          <View style={[styles.emptyState, isDark && styles.emptyStateDark]}>
+            <Ionicons name="search-outline" size={48} color={isDark ? "#6b7280" : "#9ca3af"} />
+            <Text style={[styles.emptyTitle, isDark && styles.emptyTitleDark]}>
+              {showAllRides ? 'No rides available' : 'No rides found'}
+            </Text>
+            <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
+              {showAllRides 
+                ? 'Be the first to post a ride!' 
+                : 'Try adjusting your search criteria'
+              }
+            </Text>
+          </View>
         )}
       </View>
+
+      {/* Date Picker */}
+      {showDate && (
+        <DateTimePicker
+          value={date || new Date()}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={(event, selectedDate) => {
+            setShowDate(false);
+            if (selectedDate) {
+              setDate(selectedDate);
+            }
+          }}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: colors.background,
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  containerDark: {
+    backgroundColor: '#0f0f0f',
   },
   header: {
-    paddingTop: 60,
+    paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   backButton: {
     padding: 8,
+    marginRight: 12,
   },
   headerContent: {
     flex: 1,
-    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 24,
@@ -220,131 +370,242 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   headerSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
+    marginTop: 2,
   },
   postRideButton: {
     padding: 8,
   },
   searchForm: {
-    padding: spacing.xxl,
-    gap: spacing.lg,
+    backgroundColor: 'white',
+    margin: 16,
+    borderRadius: 16,
+    padding: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
-  inputWrapper: {
-    gap: spacing.sm,
+  searchFormDark: {
+    backgroundColor: '#1f2937',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  inputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  input: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#1f2937',
+  },
+  inputDark: {
+    color: '#f9fafb',
+  },
+  universityContainer: {
+    marginBottom: 16,
   },
   label: {
-    fontSize: fontSize.md,
+    fontSize: 16,
     fontWeight: '600',
-    color: colors.primary,
-    marginLeft: spacing.xs,
+    color: '#374151',
+    marginBottom: 8,
   },
-  inputRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    borderWidth: 1.5, 
-    borderColor: colors.border, 
-    borderRadius: borderRadius.md, 
-    paddingHorizontal: spacing.lg, 
-    paddingVertical: spacing.md + 2, 
-    backgroundColor: colors.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+  labelDark: {
+    color: '#f9fafb',
   },
-  icon: { 
-    marginRight: spacing.md,
+  universityGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  input: { 
+  universityChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  universityChipSelected: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  universityChipDark: {
+    backgroundColor: '#374151',
+    borderColor: '#4b5563',
+  },
+  universityChipSelectedDark: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  universityChipText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  universityChipTextSelected: {
+    color: 'white',
+  },
+  universityChipTextDark: {
+    color: '#d1d5db',
+  },
+  universityChipTextSelectedDark: {
+    color: 'white',
+  },
+  dateContainer: {
+    marginBottom: 16,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  dateButtonDark: {
+    backgroundColor: '#374151',
+    borderColor: '#4b5563',
+  },
+  dateText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#1f2937',
+  },
+  dateTextDark: {
+    color: '#f9fafb',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  searchButton: {
     flex: 1,
-    fontSize: fontSize.lg,
-    color: colors.text,
   },
-  buttonWrapper: {
-    marginTop: spacing.sm,
+  searchButtonDark: {
+    // Same as searchButton
   },
-  button: { 
-    paddingVertical: spacing.lg, 
-    borderRadius: borderRadius.md, 
+  searchButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
   },
-  buttonText: { 
-    color: colors.white, 
-    fontWeight: '700',
-    fontSize: fontSize.lg,
+  searchButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: 'white',
+  },
+  resetButtonDark: {
+    backgroundColor: '#374151',
+    borderColor: '#4b5563',
+  },
+  resetButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  resetButtonTextDark: {
+    color: '#9ca3af',
   },
   resultsContainer: {
     flex: 1,
-    paddingHorizontal: spacing.xxl,
-    paddingTop: spacing.md,
+    paddingHorizontal: 16,
   },
   resultsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.sm,
+    marginBottom: 16,
+  },
+  resultsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  resultsTitleDark: {
+    color: '#f9fafb',
   },
   resultsCount: {
-    fontSize: fontSize.lg,
-    fontWeight: '700',
-    color: colors.text,
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  resultsCountDark: {
+    color: '#9ca3af',
+  },
+  loadingContainer: {
     flex: 1,
-  },
-  resetButton: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  resetButtonText: {
-    fontSize: fontSize.base,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: spacing.huge * 2,
-    paddingVertical: spacing.huge,
+    paddingVertical: 40,
   },
   loadingText: {
-    marginTop: spacing.md,
-    fontSize: fontSize.base,
-    color: colors.textSecondary,
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  loadingTextDark: {
+    color: '#9ca3af',
+  },
+  ridesList: {
+    paddingBottom: 20,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateDark: {
+    // Same as emptyState
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyTitleDark: {
+    color: '#f9fafb',
   },
   emptyText: {
-    marginTop: spacing.lg,
-    fontSize: fontSize.xl,
-    fontWeight: '600',
-    color: colors.text,
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 20,
   },
-  emptySubtext: {
-    marginTop: spacing.sm,
-    fontSize: fontSize.md,
-    color: colors.textSecondary,
+  emptyTextDark: {
+    color: '#9ca3af',
   },
 });

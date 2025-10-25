@@ -8,22 +8,21 @@ import {
   Switch,
   Alert,
   Linking,
+  useColorScheme,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { getPushToken } = useNotifications();
-  const [settings, setSettings] = useState({
-    notifications: true,
-    locationSharing: true,
-    darkMode: false,
-    autoLogin: true,
-  });
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const { isDark: themeIsDark, toggleTheme, colors } = useTheme();
+  
+  const [settings, setSettings] = useState({});
 
   useEffect(() => {
     loadSettings();
@@ -49,33 +48,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleToggle = (key: keyof typeof settings) => {
-    const newSettings = { ...settings, [key]: !settings[key] };
-    saveSettings(newSettings);
-  };
-
-  const handleClearCache = () => {
-    Alert.alert(
-      'Clear Cache',
-      'This will clear all cached data. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.clear();
-              Alert.alert('Success', 'Cache cleared successfully');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to clear cache');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleLogout = () => {
     Alert.alert(
       'Logout',
@@ -86,69 +58,58 @@ export default function SettingsScreen() {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            await AsyncStorage.removeItem('campool_token');
-            router.replace('/login');
+            try {
+              await AsyncStorage.multiRemove(['campool_token', 'campool_user']);
+              router.replace('/login');
+            } catch (error) {
+              console.error('Logout error:', error);
+            }
           },
         },
       ]
     );
   };
 
-  const openPrivacyPolicy = () => {
-    Linking.openURL('https://campool.com/privacy');
-  };
-
-  const openTermsOfService = () => {
-    Linking.openURL('https://campool.com/terms');
-  };
-
-  const openSupport = () => {
-    Linking.openURL('mailto:support@campool.com');
-  };
-
   const SettingItem = ({ 
-    icon, 
     title, 
     subtitle, 
+    icon, 
     onPress, 
-    rightComponent, 
-    showArrow = true 
+    rightElement, 
+    color = colors.primary 
   }: {
-    icon: string;
     title: string;
     subtitle?: string;
+    icon: string;
     onPress?: () => void;
-    rightComponent?: React.ReactNode;
-    showArrow?: boolean;
+    rightElement?: React.ReactNode;
+    color?: string;
   }) => (
     <TouchableOpacity
-      style={styles.settingItem}
+      style={[styles.settingItem, isDark && styles.settingItemDark]}
       onPress={onPress}
       disabled={!onPress}
     >
-      <View style={styles.settingLeft}>
-        <View style={styles.iconContainer}>
-          <Ionicons name={icon as any} size={24} color="#2d6a4f" />
-        </View>
-        <View style={styles.textContainer}>
-          <Text style={styles.settingTitle}>{title}</Text>
-          {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
-        </View>
+      <View style={[styles.settingIcon, { backgroundColor: color + '20' }]}>
+        <Ionicons name={icon as any} size={20} color={color} />
       </View>
-      <View style={styles.settingRight}>
-        {rightComponent}
-        {showArrow && onPress && (
-          <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+      <View style={styles.settingContent}>
+        <Text style={[styles.settingTitle, isDark && styles.settingTitleDark]}>{title}</Text>
+        {subtitle && (
+          <Text style={[styles.settingSubtitle, isDark && styles.settingSubtitleDark]}>
+            {subtitle}
+          </Text>
         )}
       </View>
+      {rightElement}
     </TouchableOpacity>
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={[styles.container, isDark && styles.containerDark]}>
       {/* Header */}
       <LinearGradient
-        colors={['#2d6a4f', '#1b9aaa']}
+        colors={isDark ? ['#1a1a1a', '#2d2d2d'] : ['#667eea', '#764ba2']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -159,150 +120,114 @@ export default function SettingsScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={styles.placeholder} />
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Settings</Text>
+          <Text style={styles.headerSubtitle}>Customize your experience</Text>
+        </View>
       </LinearGradient>
 
-      {/* Settings Content */}
-      <View style={styles.content}>
-        {/* Notifications Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Appearance */}
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>Appearance</Text>
+          
           <SettingItem
-            icon="notifications-outline"
-            title="Push Notifications"
-            subtitle="Receive ride updates and messages"
-            rightComponent={
-              <Switch
-                value={settings.notifications}
-                onValueChange={() => handleToggle('notifications')}
-                trackColor={{ false: '#d1d5db', true: '#2d6a4f' }}
-                thumbColor={settings.notifications ? '#ffffff' : '#f4f3f4'}
-              />
-            }
-            showArrow={false}
-          />
-        </View>
-
-        {/* Privacy & Security Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Privacy & Security</Text>
-          <SettingItem
-            icon="location-outline"
-            title="Location Sharing"
-            subtitle="Share location with other users"
-            rightComponent={
-              <Switch
-                value={settings.locationSharing}
-                onValueChange={() => handleToggle('locationSharing')}
-                trackColor={{ false: '#d1d5db', true: '#2d6a4f' }}
-                thumbColor={settings.locationSharing ? '#ffffff' : '#f4f3f4'}
-              />
-            }
-            showArrow={false}
-          />
-          <SettingItem
-            icon="shield-checkmark-outline"
-            title="Privacy Policy"
-            onPress={openPrivacyPolicy}
-          />
-          <SettingItem
-            icon="document-text-outline"
-            title="Terms of Service"
-            onPress={openTermsOfService}
-          />
-        </View>
-
-        {/* App Preferences Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>App Preferences</Text>
-          <SettingItem
-            icon="moon-outline"
             title="Dark Mode"
-            subtitle="Switch to dark theme"
-            rightComponent={
+            subtitle="Switch between light and dark themes"
+            icon="moon-outline"
+            rightElement={
               <Switch
-                value={settings.darkMode}
-                onValueChange={() => handleToggle('darkMode')}
-                trackColor={{ false: '#d1d5db', true: '#2d6a4f' }}
-                thumbColor={settings.darkMode ? '#ffffff' : '#f4f3f4'}
+                value={themeIsDark}
+                onValueChange={toggleTheme}
+                trackColor={{ false: '#d1d5db', true: colors.primary }}
+                thumbColor={themeIsDark ? '#ffffff' : '#f3f4f6'}
               />
             }
-            showArrow={false}
-          />
-          <SettingItem
-            icon="log-in-outline"
-            title="Auto Login"
-            subtitle="Stay logged in"
-            rightComponent={
-              <Switch
-                value={settings.autoLogin}
-                onValueChange={() => handleToggle('autoLogin')}
-                trackColor={{ false: '#d1d5db', true: '#2d6a4f' }}
-                thumbColor={settings.autoLogin ? '#ffffff' : '#f4f3f4'}
-              />
-            }
-            showArrow={false}
           />
         </View>
 
-        {/* Data & Storage Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Data & Storage</Text>
-          <SettingItem
-            icon="trash-outline"
-            title="Clear Cache"
-            subtitle="Free up storage space"
-            onPress={handleClearCache}
-          />
-          <SettingItem
-            icon="download-outline"
-            title="Export Data"
-            subtitle="Download your data"
-            onPress={() => Alert.alert('Coming Soon', 'Data export feature will be available soon')}
-          />
-        </View>
 
-        {/* Support Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support</Text>
+        {/* Support */}
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>Support</Text>
+          
           <SettingItem
+            title="Help & FAQ"
+            subtitle="Get help and find answers"
             icon="help-circle-outline"
-            title="Help Center"
             onPress={() => router.push('/help')}
           />
+
           <SettingItem
-            icon="mail-outline"
             title="Contact Support"
-            onPress={openSupport}
+            subtitle="Get in touch with our team"
+            icon="mail-outline"
+            onPress={() => {
+              Linking.openURL('mailto:support@hamraah.com');
+            }}
           />
+
           <SettingItem
-            icon="information-circle-outline"
-            title="About"
-            subtitle="Version 1.0.0"
-            onPress={() => Alert.alert('About', 'Campool v1.0.0\nBuilt with React Native & Expo')}
+            title="Rate App"
+            subtitle="Rate us on the App Store"
+            icon="star-outline"
+            onPress={() => {
+              // App store rating logic
+              Alert.alert('Thank you!', 'Your feedback helps us improve Hamraah');
+            }}
           />
         </View>
 
-        {/* Account Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
+        {/* About */}
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>About</Text>
+          
           <SettingItem
-            icon="person-outline"
-            title="Edit Profile"
-            onPress={() => router.push('/profile')}
+            title="App Version"
+            subtitle="1.0.0"
+            icon="information-circle-outline"
           />
+
           <SettingItem
-            icon="log-out-outline"
-            title="Logout"
-            onPress={handleLogout}
-            rightComponent={
-              <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-            }
+            title="Privacy Policy"
+            subtitle="Read our privacy policy"
+            icon="shield-checkmark-outline"
+            onPress={() => {
+              Linking.openURL('https://hamraah.com/privacy');
+            }}
+          />
+
+          <SettingItem
+            title="Terms of Service"
+            subtitle="Read our terms of service"
+            icon="document-text-outline"
+            onPress={() => {
+              Linking.openURL('https://hamraah.com/terms');
+            }}
           />
         </View>
-      </View>
-    </ScrollView>
+
+        {/* Logout */}
+        <View style={[styles.section, isDark && styles.sectionDark]}>
+          <SettingItem
+            title="Logout"
+            subtitle="Sign out of your account"
+            icon="log-out-outline"
+            color={colors.error}
+            onPress={handleLogout}
+          />
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, isDark && styles.footerTextDark]}>
+            Made with ❤️ for students
+          </Text>
+          <Text style={[styles.footerText, isDark && styles.footerTextDark]}>
+            Hamraah © 2024
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -311,80 +236,109 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
+  containerDark: {
+    backgroundColor: '#0f0f0f',
+  },
   header: {
-    paddingTop: 60,
+    paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   backButton: {
     padding: 8,
+    marginRight: 12,
+  },
+  headerContent: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
   },
-  placeholder: {
-    width: 40,
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
   },
-  content: {
-    padding: 20,
+  scrollView: {
+    flex: 1,
   },
   section: {
-    marginBottom: 32,
+    backgroundColor: 'white',
+    margin: 16,
+    borderRadius: 16,
+    padding: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  sectionDark: {
+    backgroundColor: '#1f2937',
+    shadowOpacity: 0.3,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#1f2937',
     marginBottom: 16,
+  },
+  sectionTitleDark: {
+    color: '#f9fafb',
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
   },
-  settingLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+  settingItemDark: {
+    borderBottomColor: '#374151',
   },
-  iconContainer: {
+  settingIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f0f9ff',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    alignItems: 'center',
+    marginRight: 16,
   },
-  textContainer: {
+  settingContent: {
     flex: 1,
   },
   settingTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#1f2937',
+    marginBottom: 2,
+  },
+  settingTitleDark: {
+    color: '#f9fafb',
   },
   settingSubtitle: {
     fontSize: 14,
     color: '#6b7280',
-    marginTop: 2,
   },
-  settingRight: {
-    flexDirection: 'row',
+  settingSubtitleDark: {
+    color: '#9ca3af',
+  },
+  footer: {
     alignItems: 'center',
-    gap: 8,
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  footerTextDark: {
+    color: '#9ca3af',
   },
 });

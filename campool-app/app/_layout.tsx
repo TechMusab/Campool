@@ -10,6 +10,7 @@ import { Image, View, ActivityIndicator, Text } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useNotifications } from '@/hooks/useNotifications';
+import { ThemeProvider as CustomThemeProvider } from '../contexts/ThemeContext';
 
 // Error boundary component
 interface ErrorBoundaryState {
@@ -103,30 +104,32 @@ export default function RootLayout() {
   }
 
   return (
-    <ErrorBoundary>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="login" options={{ headerShown: false }} />
-            <Stack.Screen name="signup" options={{ headerShown: false }} />
-            <Stack.Screen name="dashboard" options={{ headerShown: false }} />
-            <Stack.Screen name="profile" options={{ headerShown: false }} />
-            <Stack.Screen name="settings" options={{ headerShown: false }} />
-            <Stack.Screen name="post-ride" options={{ headerShown: false }} />
-            <Stack.Screen name="search-rides" options={{ headerShown: false }} />
-            <Stack.Screen name="ride-history" options={{ headerShown: false }} />
-            <Stack.Screen name="notifications" options={{ headerShown: false }} />
-            <Stack.Screen name="help" options={{ headerShown: false }} />
-            <Stack.Screen name="driver/[driverId]" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)/email-verification" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)/otp-verification" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          </Stack>
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </GestureHandlerRootView>
-    </ErrorBoundary>
+    <CustomThemeProvider>
+      <ErrorBoundary>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="login" options={{ headerShown: false }} />
+              <Stack.Screen name="signup" options={{ headerShown: false }} />
+              <Stack.Screen name="dashboard" options={{ headerShown: false }} />
+              <Stack.Screen name="profile" options={{ headerShown: false }} />
+              <Stack.Screen name="settings" options={{ headerShown: false }} />
+              <Stack.Screen name="post-ride" options={{ headerShown: false }} />
+              <Stack.Screen name="search-rides" options={{ headerShown: false }} />
+              <Stack.Screen name="ride-history" options={{ headerShown: false }} />
+              <Stack.Screen name="notifications" options={{ headerShown: false }} />
+              <Stack.Screen name="help" options={{ headerShown: false }} />
+              <Stack.Screen name="driver/[driverId]" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)/email-verification" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)/otp-verification" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            </Stack>
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </GestureHandlerRootView>
+      </ErrorBoundary>
+    </CustomThemeProvider>
   );
 }
 

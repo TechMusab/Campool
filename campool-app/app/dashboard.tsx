@@ -5,21 +5,22 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
+  Alert,
   Dimensions,
   RefreshControl,
-  Alert,
+  useColorScheme,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import rideCoordinationService from '@/services/rideCoordinationService';
-import { API_CONFIG, checkNetworkStatus } from '@/config/api';
-import OfflineIndicator from '@/components/OfflineIndicator';
+import RideCard from '../components/RideCard';
+import { checkNetworkStatus } from '../config/api';
+import OfflineIndicator from '../components/OfflineIndicator';
 
-const API_BASE = API_CONFIG.BASE_URL;
 const { width } = Dimensions.get('window');
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app';
 
 interface RideStats {
   totalRides: number;
@@ -27,7 +28,6 @@ interface RideStats {
   totalSaved: number;
   co2Saved: number;
   avgRating: number;
-  totalEarnings?: number; // For drivers
 }
 
 interface RecentRide {
@@ -35,13 +35,19 @@ interface RecentRide {
   startPoint: string;
   destination: string;
   date: string;
-  status: string;
   cost: number;
+  status: string;
   rating?: number;
 }
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
   const [stats, setStats] = useState<RideStats>({
     totalRides: 0,
     completedRides: 0,
@@ -50,88 +56,81 @@ export default function DashboardScreen() {
     avgRating: 0,
   });
   const [recentRides, setRecentRides] = useState<RecentRide[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [userType, setUserType] = useState<'passenger' | 'driver'>('passenger');
-  const [isOffline, setIsOffline] = useState(false);
+  const [userName, setUserName] = useState('Student');
 
   useEffect(() => {
     loadDashboardData();
-    rideCoordinationService.loadFromStorage();
   }, []);
 
   const loadDashboardData = async () => {
     try {
+      setLoading(true);
       const token = await AsyncStorage.getItem('campool_token');
       if (!token) {
+        router.replace('/login');
+        return;
+      }
+
+      // Check network status
+      const networkStatus = await checkNetworkStatus();
+      setIsOffline(!networkStatus);
+
+      if (!networkStatus) {
+        console.log('Offline mode - using default data');
+        setStats({
+          totalRides: 0,
+          completedRides: 0,
+          totalSaved: 0,
+          co2Saved: 0,
+          avgRating: 0,
+        });
+        setRecentRides([]);
         setLoading(false);
         return;
       }
 
-      // Set default stats for offline mode
-      setStats({
-        totalRides: 0,
-        completedRides: 0,
-        totalSaved: 0,
-        co2Saved: 0,
-        avgRating: 0,
-      });
-
-      // Check network status first
-      const isOnline = await checkNetworkStatus();
-      setIsOffline(!isOnline);
-      if (!isOnline) {
-        console.log('No network connection, using offline mode');
-        return;
-      }
-
-      // Try to load user stats with timeout
+      // Load user data
       try {
-        const statsResponse = await axios.get(`${API_BASE}/api/stats/dashboard`, {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: API_CONFIG.TIMEOUT,
-        });
-        setStats(statsResponse.data);
-      } catch (statsError) {
-        console.log('Stats API unavailable, using defaults');
+        const storedUser = await AsyncStorage.getItem('campool_user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          setUserName(userData.name || 'Student');
+        }
+      } catch (error) {
+        console.log('Error loading user data:', error);
       }
 
-      // Try to load recent rides
+      // Load stats
       try {
-        const ridesResponse = await axios.get(`${API_BASE}/api/rides/recent`, {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: API_CONFIG.TIMEOUT,
+        const statsResponse = await fetch(`${API_BASE}/api/stats/dashboard`, {
+          headers: { 'Authorization': `Bearer ${token}` },
         });
-        setRecentRides(ridesResponse.data);
-      } catch (ridesError) {
-        console.log('Recent rides API unavailable, using defaults');
-        setRecentRides([]);
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setStats(statsData);
+        } else {
+          console.log('Stats API unavailable, using defaults');
+        }
+      } catch (error) {
+        console.log('Stats API error:', error);
       }
 
-      // Try to determine user type
+      // Load recent rides
       try {
-        const userResponse = await axios.get(`${API_BASE}/api/users/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: API_CONFIG.TIMEOUT,
+        const ridesResponse = await fetch(`${API_BASE}/api/rides/recent`, {
+          headers: { 'Authorization': `Bearer ${token}` },
         });
-        setUserType(userResponse.data.isDriver ? 'driver' : 'passenger');
-      } catch (userError) {
-        console.log('User profile API unavailable, defaulting to passenger');
-        setUserType('passenger');
+        if (ridesResponse.ok) {
+          const ridesData = await ridesResponse.json();
+          setRecentRides(ridesData);
+        } else {
+          console.log('Recent rides API unavailable, using defaults');
+        }
+      } catch (error) {
+        console.log('Recent rides API error:', error);
       }
-
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-      // Set default values for offline mode
-      setStats({
-        totalRides: 0,
-        completedRides: 0,
-        totalSaved: 0,
-        co2Saved: 0,
-        avgRating: 0,
-      });
-      setRecentRides([]);
-      setUserType('passenger');
     } finally {
       setLoading(false);
     }
@@ -143,208 +142,211 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.removeItem('campool_token');
-              router.replace('/login');
-            } catch (error) {
-              console.error('Error logging out:', error);
-            }
-          },
-        },
-      ]
-    );
+  const updateStatsAfterRideStart = (rideCost: number, distance: number) => {
+    setStats(prevStats => ({
+      ...prevStats,
+      totalRides: prevStats.totalRides + 1,
+      totalSaved: prevStats.totalSaved + rideCost,
+      co2Saved: prevStats.co2Saved + (distance * 0.2), // Approximate CO2 saved per km
+    }));
   };
 
-  const StatCard = ({ title, value, icon, color, subtitle }: {
+  const StatCard = ({ title, value, icon, color, gradient }: {
     title: string;
     value: string | number;
     icon: string;
-    color: [string, string];
-    subtitle?: string;
+    color: string;
+    gradient: [string, string];
   }) => (
-    <View style={styles.statCard}>
-      <LinearGradient colors={color} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGradient}>
+    <View style={[styles.statCard, isDark && styles.statCardDark]}>
+      <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statGradient}>
         <Ionicons name={icon as any} size={24} color="white" />
         <Text style={styles.statValue}>{value}</Text>
         <Text style={styles.statTitle}>{title}</Text>
-        {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
       </LinearGradient>
     </View>
   );
 
-  const RideCard = ({ ride }: { ride: RecentRide }) => (
-    <TouchableOpacity
-      style={styles.rideCard}
-      onPress={() => router.push(`/chat/${ride.id}`)}
-    >
-      <View style={styles.rideHeader}>
-        <Text style={styles.rideRoute}>{ride.startPoint} → {ride.destination}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(ride.status) }]}>
-          <Text style={styles.statusText}>{ride.status}</Text>
-        </View>
-          </View>
-      <View style={styles.rideDetails}>
-        <Text style={styles.rideDate}>{new Date(ride.date).toLocaleDateString()}</Text>
-        <Text style={styles.rideCost}>${ride.cost}</Text>
-          </View>
-      {ride.rating && (
-        <View style={styles.ratingContainer}>
-          <Ionicons name="star" size={16} color="#fbbf24" />
-          <Text style={styles.ratingText}>{ride.rating}</Text>
-        </View>
-      )}
+  const QuickAction = ({ title, icon, onPress, color = "#2d6a4f" }: {
+    title: string;
+    icon: string;
+    onPress: () => void;
+    color?: string;
+  }) => (
+    <TouchableOpacity style={[styles.quickAction, isDark && styles.quickActionDark]} onPress={onPress}>
+      <View style={[styles.quickActionIcon, { backgroundColor: color + '20' }]}>
+        <Ionicons name={icon as any} size={28} color={color} />
+      </View>
+      <Text style={[styles.quickActionText, isDark && styles.quickActionTextDark]}>{title}</Text>
     </TouchableOpacity>
   );
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'completed': return '#10b981';
-      case 'confirmed': return '#3b82f6';
-      case 'pending': return '#f59e0b';
-      case 'cancelled': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
-
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text>Loading dashboard...</Text>
+      <View style={[styles.loadingContainer, isDark && styles.loadingContainerDark]}>
+        <ActivityIndicator size="large" color="#2d6a4f" />
+        <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>Loading your dashboard...</Text>
       </View>
     );
   }
 
   return (
-    <>
+    <View style={[styles.container, isDark && styles.containerDark]}>
       <OfflineIndicator isVisible={isOffline} />
-      <ScrollView 
-        style={styles.container}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerTitle}>Dashboard</Text>
-            <Text style={styles.headerSubtitle}>
-              {userType === 'driver' ? 'Driver Overview' : 'Passenger Overview'}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-          </View>
-
-      {/* Stats Grid */}
-      <View style={styles.statsGrid}>
-                <StatCard 
-          title="Total Rides"
-          value={stats.totalRides}
-          icon="car-outline"
-          color={['#3b82f6', '#1d4ed8']}
-                />
-                <StatCard 
-          title="Completed"
-          value={stats.completedRides}
-          icon="checkmark-circle-outline"
-          color={['#10b981', '#059669']}
-        />
-                <StatCard 
-          title={userType === 'driver' ? 'Earnings' : 'Saved'}
-          value={`$${stats.totalSaved}`}
-          icon={userType === 'driver' ? 'cash-outline' : 'wallet-outline'}
-          color={['#f59e0b', '#d97706']}
-                />
-                <StatCard 
-          title="CO₂ Saved"
-          value={`${stats.co2Saved}kg`}
-          icon="leaf-outline"
-          color={['#22c55e', '#16a34a']}
-          subtitle="Environmental Impact"
-                />
-              </View>
-
-      {/* Quick Actions */}
-      <View style={styles.quickActionsSection}>
-              <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.quickActionsGrid}>
-              <TouchableOpacity 
-            style={styles.quickAction}
-                onPress={() => router.push('/post-ride')} 
-          >
-            <Ionicons name="add-circle-outline" size={32} color="#2d6a4f" />
-            <Text style={styles.quickActionText}>Post Ride</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => router.push('/search-rides')}
-          >
-            <Ionicons name="search-outline" size={32} color="#2d6a4f" />
-            <Text style={styles.quickActionText}>Find Ride</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-            style={styles.quickAction}
-            onPress={() => router.push('/profile')}
-          >
-            <Ionicons name="person-outline" size={32} color="#2d6a4f" />
-            <Text style={styles.quickActionText}>Profile</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => router.push('/notifications')}
-          >
-            <Ionicons name="notifications-outline" size={32} color="#2d6a4f" />
-            <Text style={styles.quickActionText}>Notifications</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => router.push('/settings')}
-          >
-            <Ionicons name="settings-outline" size={32} color="#2d6a4f" />
-            <Text style={styles.quickActionText}>Settings</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Recent Rides */}
-      <View style={styles.recentRidesSection}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Rides</Text>
-          <TouchableOpacity onPress={() => router.push('/ride-history')}>
-            <Text style={styles.viewAllText}>View All</Text>
-              </TouchableOpacity>
+        <LinearGradient
+          colors={isDark ? ['#1a1a1a', '#2d2d2d'] : ['#667eea', '#764ba2']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
+        >
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={styles.greeting}>Welcome to</Text>
+              <Text style={styles.appName}>Hamraah</Text>
+              <Text style={styles.userName}>{userName}</Text>
             </View>
-        
-        {recentRides.length > 0 ? (
-          recentRides.map((ride) => (
-            <RideCard key={ride.id} ride={ride} />
-          ))
-        ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="car-outline" size={48} color="#9ca3af" />
-            <Text style={styles.emptyStateText}>No rides yet</Text>
-            <Text style={styles.emptyStateSubtext}>
-              {userType === 'driver' ? 'Post your first ride!' : 'Find your first ride!'}
-            </Text>
+            <TouchableOpacity
+              style={styles.profileButton}
+              onPress={() => router.push('/profile')}
+            >
+              <Ionicons name="person-circle-outline" size={32} color="white" />
+            </TouchableOpacity>
           </View>
-        )}
-      </View>
+        </LinearGradient>
+
+        {/* Stats Cards */}
+        <View style={styles.statsContainer}>
+          <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>Your Ride Stats</Text>
+          <View style={styles.statsGrid}>
+            <StatCard
+              title="Rides Taken"
+              value={stats.totalRides}
+              icon="car-outline"
+              color="#3b82f6"
+              gradient={['#3b82f6', '#1d4ed8']}
+            />
+            <StatCard
+              title="Completed"
+              value={stats.completedRides}
+              icon="checkmark-circle-outline"
+              color="#10b981"
+              gradient={['#10b981', '#059669']}
+            />
+            <StatCard
+              title="Money Saved"
+              value={`Rs.${stats.totalSaved.toLocaleString()}`}
+              icon="wallet-outline"
+              color="#f59e0b"
+              gradient={['#f59e0b', '#d97706']}
+            />
+            <StatCard
+              title="CO₂ Saved"
+              value={`${stats.co2Saved}kg`}
+              icon="leaf-outline"
+              color="#8b5cf6"
+              gradient={['#8b5cf6', '#7c3aed']}
+            />
+          </View>
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.quickActionsContainer}>
+          <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>Quick Actions</Text>
+          <View style={styles.quickActionsGrid}>
+            <QuickAction
+              title="Post Ride"
+              icon="add-circle-outline"
+              onPress={() => router.push('/post-ride')}
+              color="#10b981"
+            />
+            <QuickAction
+              title="Find Ride"
+              icon="search-outline"
+              onPress={() => router.push('/search-rides')}
+              color="#3b82f6"
+            />
+            <QuickAction
+              title="Ride History"
+              icon="time-outline"
+              onPress={() => router.push('/ride-history')}
+              color="#f59e0b"
+            />
+            <QuickAction
+              title="Settings"
+              icon="settings-outline"
+              onPress={() => router.push('/settings')}
+              color="#6b7280"
+            />
+          </View>
+        </View>
+
+        {/* Recent Rides */}
+        <View style={styles.recentRidesContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>Recent Rides</Text>
+            <TouchableOpacity onPress={() => router.push('/ride-history')}>
+              <Text style={styles.viewAllText}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {recentRides.length > 0 ? (
+            recentRides.slice(0, 3).map((ride) => (
+              <View key={ride.id} style={[styles.recentRideCard, isDark && styles.recentRideCardDark]}>
+                <View style={styles.recentRideHeader}>
+                  <Text style={[styles.recentRideRoute, isDark && styles.recentRideRouteDark]}>
+                    {ride.startPoint} → {ride.destination}
+                  </Text>
+                  <View style={[
+                    styles.statusBadge, 
+                    ride.status === 'completed' ? styles.completedBadge : styles.inProgressBadge,
+                    isDark && (ride.status === 'completed' ? styles.completedBadgeDark : styles.inProgressBadgeDark)
+                  ]}>
+                    <Text style={[
+                      styles.statusText,
+                      ride.status === 'completed' ? styles.completedText : styles.inProgressText,
+                      isDark && (ride.status === 'completed' ? styles.completedTextDark : styles.inProgressTextDark)
+                    ]}>
+                      {ride.status === 'completed' ? 'Completed' : 'In Progress'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.recentRideDetails}>
+                  <Text style={[styles.recentRideDate, isDark && styles.recentRideDateDark]}>
+                    {new Date(ride.date).toLocaleDateString()}
+                  </Text>
+                  <Text style={[styles.recentRideCost, isDark && styles.recentRideCostDark]}>
+                    Rs. {ride.cost}
+                  </Text>
+                  {ride.rating && (
+                    <View style={styles.ratingContainer}>
+                      <Ionicons name="star" size={14} color="#fbbf24" />
+                      <Text style={[styles.ratingText, isDark && styles.ratingTextDark]}>{ride.rating}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={[styles.emptyState, isDark && styles.emptyStateDark]}>
+              <Ionicons name="car-outline" size={48} color={isDark ? "#6b7280" : "#9ca3af"} />
+              <Text style={[styles.emptyTitle, isDark && styles.emptyTitleDark]}>No rides yet</Text>
+              <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
+                Start by posting a ride or finding one to join!
+              </Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
-    </>
+    </View>
   );
 }
 
@@ -353,47 +355,88 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
+  containerDark: {
+    backgroundColor: '#0f0f0f',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f8fafc',
+  },
+  loadingContainerDark: {
+    backgroundColor: '#0f0f0f',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  loadingTextDark: {
+    color: '#9ca3af',
+  },
+  scrollView: {
+    flex: 1,
   },
   header: {
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: '#2d6a4f',
+    paddingTop: 50,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  headerTitle: {
+  greeting: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 4,
+  },
+  appName: {
     fontSize: 28,
     fontWeight: 'bold',
     color: 'white',
+    marginBottom: 4,
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#a7f3d0',
-    marginTop: 4,
+  userName: {
+    fontSize: 18,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
-  logoutButton: {
+  profileButton: {
     padding: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  statsContainer: {
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 16,
+  },
+  sectionTitleDark: {
+    color: '#f9fafb',
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: 16,
     justifyContent: 'space-between',
   },
   statCard: {
-    width: (width - 48) / 2,
+    width: (width - 60) / 2,
     marginBottom: 16,
     borderRadius: 16,
     overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  statCardDark: {
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
   },
   statGradient: {
     padding: 20,
@@ -404,27 +447,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
     marginTop: 8,
+    marginBottom: 4,
   },
   statTitle: {
     fontSize: 14,
-    color: 'white',
-    marginTop: 4,
+    color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
   },
-  statSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  quickActionsSection: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 16,
+  quickActionsContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   quickActionsGrid: {
     flexDirection: 'row',
@@ -432,26 +464,41 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   quickAction: {
-    width: (width - 48) / 2,
+    width: (width - 60) / 2,
     backgroundColor: 'white',
+    borderRadius: 16,
     padding: 20,
-    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  quickActionDark: {
+    backgroundColor: '#1f2937',
+  },
+  quickActionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   quickActionText: {
-    marginTop: 8,
     fontSize: 14,
     fontWeight: '600',
-    color: '#2d6a4f',
+    color: '#374151',
+    textAlign: 'center',
   },
-  recentRidesSection: {
-    padding: 16,
+  quickActionTextDark: {
+    color: '#f9fafb',
+  },
+  recentRidesContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 30,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -460,81 +507,136 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   viewAllText: {
-    color: '#2d6a4f',
+    fontSize: 14,
+    color: '#3b82f6',
     fontWeight: '600',
   },
-  rideCard: {
+  emptyState: {
     backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderRadius: 16,
+    padding: 40,
+    alignItems: 'center',
     elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
-  rideHeader: {
+  emptyStateDark: {
+    backgroundColor: '#1f2937',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyTitleDark: {
+    color: '#f9fafb',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  emptyTextDark: {
+    color: '#9ca3af',
+  },
+  recentRideCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  recentRideCardDark: {
+    backgroundColor: '#1f2937',
+    shadowOpacity: 0.3,
+  },
+  recentRideHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-  rideRoute: {
+  recentRideRoute: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1f2937',
     flex: 1,
   },
+  recentRideRouteDark: {
+    color: '#f9fafb',
+  },
   statusBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
+  completedBadge: {
+    backgroundColor: '#d1fae5',
+  },
+  completedBadgeDark: {
+    backgroundColor: '#064e3b',
+  },
+  inProgressBadge: {
+    backgroundColor: '#fef3c7',
+  },
+  inProgressBadgeDark: {
+    backgroundColor: '#78350f',
+  },
   statusText: {
     fontSize: 12,
-    color: 'white',
     fontWeight: '600',
   },
-  rideDetails: {
+  completedText: {
+    color: '#065f46',
+  },
+  completedTextDark: {
+    color: '#6ee7b7',
+  },
+  inProgressText: {
+    color: '#92400e',
+  },
+  inProgressTextDark: {
+    color: '#fbbf24',
+  },
+  recentRideDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  rideDate: {
+  recentRideDate: {
     fontSize: 14,
     color: '#6b7280',
   },
-  rideCost: {
+  recentRideDateDark: {
+    color: '#9ca3af',
+  },
+  recentRideCost: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#059669',
+    fontWeight: '600',
+    color: '#10b981',
+  },
+  recentRideCostDark: {
+    color: '#34d399',
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
   },
   ratingText: {
-    marginLeft: 4,
     fontSize: 14,
-    color: '#fbbf24',
-    fontWeight: '600',
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyStateText: {
-    fontSize: 18,
-    fontWeight: '600',
     color: '#6b7280',
-    marginTop: 16,
+    marginLeft: 4,
   },
-  emptyStateSubtext: {
-    fontSize: 14,
+  ratingTextDark: {
     color: '#9ca3af',
-    marginTop: 8,
-    textAlign: 'center',
   },
 });
