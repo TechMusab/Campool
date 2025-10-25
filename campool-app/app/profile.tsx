@@ -72,7 +72,7 @@ export default function ProfileScreen() {
 
       // Try to load profile from API
       try {
-        const response = await axios.get(`${API_BASE}/users/profile`, {
+        const response = await axios.get(`${API_BASE}/api/users/profile`, {
           headers: { Authorization: `Bearer ${token}` },
           timeout: API_CONFIG.TIMEOUT,
         });
@@ -125,7 +125,7 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem('campool_token');
       if (!token) return;
 
-      await axios.put(`${API_BASE}/users/profile`, formData, {
+      await axios.put(`${API_BASE}/api/users/profile`, formData, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: API_CONFIG.TIMEOUT,
       });

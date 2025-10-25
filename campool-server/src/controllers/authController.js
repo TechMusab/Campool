@@ -478,4 +478,95 @@ async function createSimpleTestUser(req, res) {
 	}
 }
 
-module.exports = { signup, login, requestOtp, verifyOtp, createTestUser, createSimpleTestUser };
+// Create multiple test users for testing
+async function createTestUsers(req, res) {
+	try {
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for test users creation...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for test users');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		const testUsers = [
+			{
+				name: 'Alice Johnson',
+				email: 'alice@university.edu',
+				password: 'alice123',
+				studentId: 'STU001',
+				whatsappNumber: '+1234567890'
+			},
+			{
+				name: 'Bob Smith',
+				email: 'bob@university.edu',
+				password: 'bob123',
+				studentId: 'STU002',
+				whatsappNumber: '+1234567891'
+			}
+		];
+
+		const createdUsers = [];
+
+		for (const userData of testUsers) {
+			// Check if user already exists
+			const existingUser = await User.findOne({ email: userData.email });
+			if (existingUser) {
+				createdUsers.push({
+					message: `User ${userData.email} already exists`,
+					user: {
+						id: existingUser._id,
+						name: existingUser.name,
+						email: existingUser.email,
+						studentId: existingUser.studentId
+					}
+				});
+				continue;
+			}
+
+			// Create user
+			const passwordHash = await bcrypt.hash(userData.password, SALT_ROUNDS);
+			const user = await User.create({
+				name: userData.name,
+				email: userData.email,
+				passwordHash: passwordHash,
+				studentId: userData.studentId,
+				whatsappNumber: userData.whatsappNumber,
+				status: 'verified',
+				isVerified: true
+			});
+
+			createdUsers.push({
+				message: `User ${userData.email} created successfully`,
+				user: {
+					id: user._id,
+					name: user.name,
+					email: user.email,
+					studentId: user.studentId
+				}
+			});
+		}
+
+		console.log('✅ Test users created successfully');
+		return res.status(201).json({
+			message: 'Test users created successfully',
+			users: createdUsers
+		});
+	} catch (error) {
+		console.error('createTestUsers error', error);
+		return res.status(500).json({ error: 'Internal server error' });
+	}
+}
+
+module.exports = { signup, login, requestOtp, verifyOtp, createTestUser, createSimpleTestUser, createTestUsers };

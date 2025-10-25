@@ -16,7 +16,7 @@ export type Ride = {
   driverId?: { name?: string; avgRating?: number; whatsappNumber?: string } | string;
 };
 
-export default function RideCard({ ride, onJoin }: { ride: Ride; onJoin?: (ride: Ride) => void }) {
+export default function RideCard({ ride, onJoin, currentUserId }: { ride: Ride; onJoin?: (ride: Ride) => void; currentUserId?: string }) {
   const router = useRouter();
   const driverName = typeof ride.driverId === 'object' && ride.driverId ? ride.driverId.name : 'Driver';
   const rating = typeof ride.driverId === 'object' && ride.driverId ? (ride.driverId as any).avgRating ?? 4.8 : 4.8;

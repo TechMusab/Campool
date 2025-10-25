@@ -87,7 +87,7 @@ export default function DashboardScreen() {
 
       // Try to load user stats with timeout
       try {
-        const statsResponse = await axios.get(`${API_BASE}/stats/dashboard`, {
+        const statsResponse = await axios.get(`${API_BASE}/api/stats/dashboard`, {
           headers: { Authorization: `Bearer ${token}` },
           timeout: API_CONFIG.TIMEOUT,
         });
@@ -98,7 +98,7 @@ export default function DashboardScreen() {
 
       // Try to load recent rides
       try {
-        const ridesResponse = await axios.get(`${API_BASE}/rides/recent`, {
+        const ridesResponse = await axios.get(`${API_BASE}/api/rides/recent`, {
           headers: { Authorization: `Bearer ${token}` },
           timeout: API_CONFIG.TIMEOUT,
         });
@@ -110,7 +110,7 @@ export default function DashboardScreen() {
 
       // Try to determine user type
       try {
-        const userResponse = await axios.get(`${API_BASE}/users/profile`, {
+        const userResponse = await axios.get(`${API_BASE}/api/users/profile`, {
           headers: { Authorization: `Bearer ${token}` },
           timeout: API_CONFIG.TIMEOUT,
         });

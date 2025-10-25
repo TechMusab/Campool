@@ -50,7 +50,7 @@ export default function RideHistoryScreen() {
         return;
       }
 
-      const response = await axios.get(`${API_BASE}/rides/history`, {
+      const response = await axios.get(`${API_BASE}/api/rides/history`, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: API_CONFIG.TIMEOUT,
       });

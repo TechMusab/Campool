@@ -57,7 +57,7 @@ export default function PostRideScreen() {
       const isoDate = new Date(date);
       isoDate.setHours(time.getHours(), time.getMinutes(), 0, 0);
       await axios.post(
-        `${API_BASE}/rides/create`,
+        `${API_BASE}/api/rides/create`,
         {
           startPoint,
           destination,

@@ -38,7 +38,7 @@ export default function SearchRidesScreen() {
       if (startPoint) params.startPoint = startPoint;
       if (destination) params.destination = destination;
       if (date) params.datetime = date.toISOString();
-      const res = await axios.get(`${API_BASE}/rides/search`, { params });
+      const res = await axios.get(`${API_BASE}/api/rides/search`, { params });
       setResults(res.data.items || []);
       setSearchPerformed(true); // Hide search form after search
     } catch (e) {
