@@ -133,7 +133,7 @@ export default function ChatScreen() {
     try {
       console.log('Sending message via API:', { rideId, text });
       const token = await AsyncStorage.getItem('campool_token');
-      const response = await fetch(`${SERVER_URL}/api/messages/create`, {
+      const response = await fetch(`${SERVER_URL}/api/rides/create`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

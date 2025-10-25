@@ -21,6 +21,12 @@ async function createRide(req, res) {
 		console.log('createRide called with body:', req.body);
 		console.log('createRide called with userId:', req.userId);
 		
+		// Check if this is a message creation request
+		if (req.body.rideId && req.body.text) {
+			console.log('Message creation request detected');
+			return await createMessage(req, res);
+		}
+		
 		// Force MongoDB connection for serverless environment
 		const mongoose = require('mongoose');
 		if (mongoose.connection.readyState === 0) {
