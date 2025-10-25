@@ -57,9 +57,10 @@ export default function InboxScreen() {
 
         if (response.ok) {
           const data = await response.json();
+          console.log('Inbox data received:', data);
           setChats(data);
         } else {
-          console.log('Inbox API not available, showing empty state');
+          console.log('Inbox API not available, showing empty state. Status:', response.status);
           setChats([]);
         }
       } catch (apiError) {
@@ -137,10 +138,20 @@ export default function InboxScreen() {
         {chats.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="chatbubbles-outline" size={64} color={colors.textMuted} />
-            <Text style={styles.emptyTitle}>No messages yet</Text>
+            <Text style={styles.emptyTitle}>No conversations yet</Text>
             <Text style={styles.emptySubtitle}>
-              Start a conversation by joining a ride or posting your own!
+              Start chatting by:{'\n'}
+              • Posting a ride and waiting for passengers{'\n'}
+              • Finding a ride and clicking the Chat button{'\n'}
+              • Messages will appear here once you start chatting
             </Text>
+            <TouchableOpacity 
+              style={styles.refreshButton}
+              onPress={loadChats}
+            >
+              <Ionicons name="refresh" size={20} color={colors.primary} />
+              <Text style={styles.refreshButtonText}>Refresh</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           chats.map((chat) => (
@@ -247,6 +258,23 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: fontSize.lg * 1.4,
+    marginBottom: spacing.lg,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  refreshButtonText: {
+    marginLeft: spacing.sm,
+    fontSize: fontSize.md,
+    color: colors.primary,
+    fontWeight: '600',
   },
   chatItem: {
     flexDirection: 'row',
