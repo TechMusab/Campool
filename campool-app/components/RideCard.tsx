@@ -36,9 +36,10 @@ export default function RideCard({ ride, onJoin, currentUserId }: { ride: Ride; 
     });
   };
 
-  const openChat = () => {
-    router.push(`/chat/${ride._id}`);
+  const trackRide = () => {
+    router.push(`/ride-tracking?rideId=${ride._id}`);
   };
+
 
   return (
     <View style={styles.card}>
@@ -53,20 +54,17 @@ export default function RideCard({ ride, onJoin, currentUserId }: { ride: Ride; 
       
       {/* Action Buttons Row */}
       <View style={styles.buttonRow}>
-        {/* Only show chat button if current user is not the ride creator */}
-        {currentUserId !== ride.driverId && (
-          <TouchableOpacity onPress={openChat} style={styles.chatButton}>
-            <LinearGradient colors={["#3b82f6", "#1d4ed8"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.chatGradient}>
-              <Ionicons name="chatbubble-outline" size={18} color="#fff" />
-              <Text style={styles.chatText}>Chat</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-        
         <TouchableOpacity onPress={openWhatsApp} style={styles.whatsappButton}>
           <LinearGradient colors={["#25D366", "#128C7E"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.whatsappGradient}>
             <Ionicons name="logo-whatsapp" size={18} color="#fff" />
             <Text style={styles.whatsappText}>WhatsApp</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        <TouchableOpacity onPress={trackRide} style={styles.trackButton}>
+          <LinearGradient colors={["#3b82f6", "#1d4ed8"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.trackGradient}>
+            <Ionicons name="location-outline" size={18} color="#fff" />
+            <Text style={styles.trackText}>Track</Text>
           </LinearGradient>
         </TouchableOpacity>
         
@@ -89,12 +87,12 @@ const styles = StyleSheet.create({
   meta: { color: '#555', marginTop: 4 },
   costHighlight: { color: '#2d6a4f', fontWeight: '700', marginTop: 4 },
   buttonRow: { flexDirection: 'row', gap: 8 },
-  chatButton: { flex: 1 },
-  chatGradient: { paddingVertical: 10, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  chatText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
   whatsappButton: { flex: 1 },
   whatsappGradient: { paddingVertical: 10, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
   whatsappText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  trackButton: { flex: 1 },
+  trackGradient: { paddingVertical: 10, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  trackText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
   joinButton: { flex: 1 },
   button: { paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
   buttonText: { color: 'white', fontWeight: 'bold' },

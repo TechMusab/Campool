@@ -21,11 +21,6 @@ async function createRide(req, res) {
 		console.log('createRide called with body:', req.body);
 		console.log('createRide called with userId:', req.userId);
 		
-		// Check if this is a message creation request
-		if (req.body.rideId && req.body.text) {
-			console.log('Message creation request detected');
-			return await createMessage(req, res);
-		}
 		
 		// Force MongoDB connection for serverless environment
 		const mongoose = require('mongoose');
@@ -253,15 +248,16 @@ async function getRideMessages(req, res) {
 	}
 }
 
-// Simple message creation endpoint
-async function createMessage(req, res) {
+
+// Update ride status (for drivers)
+async function updateRideStatus(req, res) {
 	try {
-		console.log('createMessage called with body:', req.body);
+		console.log('updateRideStatus called:', req.body);
 		
 		// Force MongoDB connection for serverless environment
 		const mongoose = require('mongoose');
 		if (mongoose.connection.readyState === 0) {
-			console.log('Connecting to MongoDB for message creation...');
+			console.log('Connecting to MongoDB for ride status update...');
 			try {
 				await mongoose.connect(process.env.MONGO_URI, {
 					useNewUrlParser: true,
@@ -270,20 +266,80 @@ async function createMessage(req, res) {
 					socketTimeoutMS: 45000,
 					maxPoolSize: 1,
 				});
-				console.log('✅ MongoDB connected for message creation');
+				console.log('✅ MongoDB connected for ride status update');
 			} catch (connectError) {
 				console.error('❌ MongoDB connection failed:', connectError);
 				return res.status(500).json({ error: 'Database connection failed' });
 			}
 		}
 
-		const { rideId, text } = req.body;
-		if (!rideId || !text) {
-			return res.status(400).json({ error: 'rideId and text are required' });
+		const { rideId, status } = req.body;
+		if (!rideId || !status) {
+			return res.status(400).json({ error: 'rideId and status are required' });
 		}
 
-		const Message = require('../models/Message');
-		const User = require('../models/User');
+		// Verify ride exists and user is the driver
+		const ride = await Ride.findById(rideId);
+		if (!ride) {
+			return res.status(404).json({ error: 'Ride not found' });
+		}
+
+		if (ride.driverId.toString() !== req.userId) {
+			return res.status(403).json({ error: 'Only the driver can update ride status' });
+		}
+
+		// Update status with timestamps
+		const updateData = { status };
+		if (status === 'started') {
+			updateData.startedAt = new Date();
+			updateData.actualStartTime = new Date();
+		} else if (status === 'completed') {
+			updateData.completedAt = new Date();
+			updateData.actualEndTime = new Date();
+		}
+
+		const updatedRide = await Ride.findByIdAndUpdate(
+			rideId,
+			updateData,
+			{ new: true }
+		).populate('driverId', 'name whatsappNumber');
+
+		console.log('Ride status updated successfully:', updatedRide._id);
+		return res.json({ success: true, ride: updatedRide });
+	} catch (err) {
+		console.error('updateRideStatus error', err);
+		return res.status(500).json({ error: 'Internal server error', details: err.message });
+	}
+}
+
+// Join a ride (for passengers)
+async function joinRide(req, res) {
+	try {
+		console.log('joinRide called:', req.body);
+		
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for join ride...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for join ride');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		const { rideId } = req.body;
+		if (!rideId) {
+			return res.status(400).json({ error: 'rideId is required' });
+		}
 
 		// Verify ride exists
 		const ride = await Ride.findById(rideId);
@@ -291,37 +347,52 @@ async function createMessage(req, res) {
 			return res.status(404).json({ error: 'Ride not found' });
 		}
 
-		// Get user info
-		const user = await User.findById(req.userId);
-		if (!user) {
-			return res.status(404).json({ error: 'User not found' });
+		// Check if user is already a passenger
+		const existingPassenger = ride.passengers.find(p => p.userId.toString() === req.userId);
+		if (existingPassenger) {
+			return res.status(400).json({ error: 'You have already joined this ride' });
 		}
 
-		// Create message
-		const message = await Message.create({
-			rideId,
-			senderId: req.userId,
-			senderName: user.name,
-			text: text.trim(),
+		// Check if there are available seats
+		if (ride.passengers.length >= ride.availableSeats) {
+			return res.status(400).json({ error: 'No available seats' });
+		}
+
+		// Add passenger to ride
+		ride.passengers.push({
+			userId: req.userId,
+			joinedAt: new Date(),
+			status: 'joined'
 		});
 
-		console.log('Message created successfully:', message._id);
-		return res.status(201).json({ success: true, message });
+		// Update ride status to confirmed if it was pending
+		if (ride.status === 'pending') {
+			ride.status = 'confirmed';
+		}
+
+		await ride.save();
+
+		const populatedRide = await Ride.findById(ride._id)
+			.populate('driverId', 'name whatsappNumber')
+			.populate('passengers.userId', 'name whatsappNumber');
+
+		console.log('User joined ride successfully:', ride._id);
+		return res.json({ success: true, ride: populatedRide });
 	} catch (err) {
-		console.error('createMessage error', err);
+		console.error('joinRide error', err);
 		return res.status(500).json({ error: 'Internal server error', details: err.message });
 	}
 }
 
-// Get messages for a ride
-async function getMessages(req, res) {
+// Get ride status for tracking
+async function getRideStatus(req, res) {
 	try {
-		console.log('getMessages called for ride:', req.params.id);
+		console.log('getRideStatus called for ride:', req.params.id);
 		
 		// Force MongoDB connection for serverless environment
 		const mongoose = require('mongoose');
 		if (mongoose.connection.readyState === 0) {
-			console.log('Connecting to MongoDB for messages...');
+			console.log('Connecting to MongoDB for ride status...');
 			try {
 				await mongoose.connect(process.env.MONGO_URI, {
 					useNewUrlParser: true,
@@ -330,115 +401,56 @@ async function getMessages(req, res) {
 					socketTimeoutMS: 45000,
 					maxPoolSize: 1,
 				});
-				console.log('✅ MongoDB connected for messages');
+				console.log('✅ MongoDB connected for ride status');
 			} catch (connectError) {
 				console.error('❌ MongoDB connection failed:', connectError);
 				return res.status(500).json({ error: 'Database connection failed' });
 			}
 		}
 
-		const Message = require('../models/Message');
 		const rideId = req.params.id;
-		
 		if (!mongoose.isValidObjectId(rideId)) {
 			return res.status(400).json({ error: 'Invalid ride ID' });
 		}
 
-		// Verify ride exists
-		const ride = await Ride.findById(rideId);
+		const ride = await Ride.findById(rideId)
+			.populate('driverId', 'name whatsappNumber')
+			.populate('passengers.userId', 'name whatsappNumber');
+
 		if (!ride) {
 			return res.status(404).json({ error: 'Ride not found' });
 		}
 
-		// Get messages for this ride
-		const messages = await Message.find({ rideId })
-			.sort({ createdAt: 1 })
-			.lean();
+		// Check if user is driver or passenger
+		const isDriver = ride.driverId._id.toString() === req.userId;
+		const isPassenger = ride.passengers.some(p => p.userId._id.toString() === req.userId);
 
-		console.log('Found messages:', messages.length);
-		return res.json(messages);
+		if (!isDriver && !isPassenger) {
+			return res.status(403).json({ error: 'You are not part of this ride' });
+		}
+
+		console.log('Ride status retrieved:', ride.status);
+		return res.json({ 
+			success: true, 
+			ride: {
+				id: ride._id,
+				status: ride.status,
+				startedAt: ride.startedAt,
+				completedAt: ride.completedAt,
+				actualStartTime: ride.actualStartTime,
+				actualEndTime: ride.actualEndTime,
+				driver: ride.driverId,
+				passengers: ride.passengers,
+				startPoint: ride.startPoint,
+				destination: ride.destination,
+				date: ride.date,
+				time: ride.time
+			}
+		});
 	} catch (err) {
-		console.error('getMessages error', err);
+		console.error('getRideStatus error', err);
 		return res.status(500).json({ error: 'Internal server error', details: err.message });
 	}
 }
 
-// Get user's inbox
-async function getInbox(req, res) {
-	try {
-		console.log('getInbox called for user:', req.userId);
-		
-		// Force MongoDB connection for serverless environment
-		const mongoose = require('mongoose');
-		if (mongoose.connection.readyState === 0) {
-			console.log('Connecting to MongoDB for inbox...');
-			try {
-				await mongoose.connect(process.env.MONGO_URI, {
-					useNewUrlParser: true,
-					useUnifiedTopology: true,
-					serverSelectionTimeoutMS: 15000,
-					socketTimeoutMS: 45000,
-					maxPoolSize: 1,
-				});
-				console.log('✅ MongoDB connected for inbox');
-			} catch (connectError) {
-				console.error('❌ MongoDB connection failed:', connectError);
-				return res.status(500).json({ error: 'Database connection failed' });
-			}
-		}
-
-		const Message = require('../models/Message');
-		const User = require('../models/User');
-		const userId = req.userId;
-
-		// Get all messages where user is involved
-		const messages = await Message.find({
-			$or: [
-				{ senderId: userId },
-				{ 'rideId.driverId': userId }
-			]
-		})
-		.populate('rideId', 'startPoint destination driverId')
-		.sort({ createdAt: -1 })
-		.limit(100);
-
-		// Group messages by rideId
-		const conversations = new Map();
-		for (const message of messages) {
-			const rideId = message.rideId._id.toString();
-			if (!conversations.has(rideId)) {
-				let otherParticipant = null;
-				if (message.rideId.driverId.toString() === userId) {
-					otherParticipant = { name: message.senderName, id: message.senderId };
-				} else {
-					const driver = await User.findById(message.rideId.driverId).select('name').lean();
-					otherParticipant = { name: driver?.name || 'Driver', id: message.rideId.driverId.toString() };
-				}
-				conversations.set(rideId, {
-					id: rideId,
-					rideId: rideId,
-					rideTitle: `${message.rideId.startPoint} → ${message.rideId.destination}`,
-					lastMessage: message.text,
-					lastMessageTime: message.createdAt,
-					unreadCount: 0,
-					otherParticipant: otherParticipant
-				});
-			} else {
-				const conv = conversations.get(rideId);
-				if (new Date(message.createdAt) > new Date(conv.lastMessageTime)) {
-					conv.lastMessage = message.text;
-					conv.lastMessageTime = message.createdAt;
-				}
-			}
-		}
-
-		const inbox = Array.from(conversations.values()).sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
-		console.log('Inbox conversations:', inbox.length);
-		return res.json(inbox);
-	} catch (err) {
-		console.error('getInbox error', err);
-		return res.status(500).json({ error: 'Internal server error', details: err.message });
-	}
-}
-
-module.exports = { createRide, searchRides, getRideById, testRideCreation, getRideMessages, createMessage, getMessages, getInbox }; 
+module.exports = { createRide, searchRides, getRideById, testRideCreation, getRideMessages, updateRideStatus, joinRide, getRideStatus }; 

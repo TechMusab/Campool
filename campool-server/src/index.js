@@ -4,8 +4,6 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 
 const app = express();
-const http = require('http');
-const { setupChatSocket } = require('./socket/chatSocket');
 
 // Add error handling for missing environment variables
 if (!process.env.MONGO_URI) {
@@ -136,9 +134,6 @@ app.get('/diagnostic', (req, res) => {
 	res.json(diagnostic);
 });
 
-// Initialize Socket.IO server
-const server = http.createServer(app);
-const io = setupChatSocket(server);
 
 // Export for Vercel
 module.exports = app;

@@ -305,6 +305,13 @@ export default function DashboardScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.quickAction}
+            onPress={() => router.push('/ride-tracking')}
+          >
+            <Ionicons name="location-outline" size={32} color="#2d6a4f" />
+            <Text style={styles.quickActionText}>Track Rides</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAction}
             onPress={() => router.push('/settings')}
           >
             <Ionicons name="settings-outline" size={32} color="#2d6a4f" />
