@@ -2,15 +2,20 @@ import { useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import notificationService from '@/services/notificationService';
+import Constants from 'expo-constants';
 
 export function useNotifications() {
   const router = useRouter();
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
-    // Initialize notifications
-    notificationService.initialize();
+    // Only initialize notifications if not in Expo Go or if explicitly enabled
+    if (Constants.appOwnership !== 'expo') {
+      notificationService.initialize();
+    } else {
+      console.log('Notifications disabled in Expo Go - use development build for full functionality');
+    }
 
     // Listen for notifications received while app is in foreground
     notificationListener.current = notificationService.addNotificationReceivedListener(
@@ -49,10 +54,10 @@ export function useNotifications() {
 
     return () => {
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
     };
   }, [router]);

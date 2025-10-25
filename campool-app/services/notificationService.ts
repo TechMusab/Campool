@@ -9,6 +9,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -23,6 +25,12 @@ class NotificationService {
 
   async initialize(): Promise<string | null> {
     try {
+      // Skip notification initialization in Expo Go
+      if (Constants.appOwnership === 'expo') {
+        console.log('Skipping notification initialization in Expo Go');
+        return null;
+      }
+
       if (Device.isDevice) {
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;

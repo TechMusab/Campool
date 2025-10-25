@@ -155,6 +155,27 @@ console.log("=== SIGNUP REQUEST START ===");
 console.log("Request body:", JSON.stringify(req.body, null, 2));
 console.log("Request headers:", JSON.stringify(req.headers, null, 2));
 	try {
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		console.log('Current MongoDB state:', mongoose.connection.readyState);
+		
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for signup...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1, // Important for serverless
+				});
+				console.log('✅ MongoDB connected for signup');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
 console.log("Step 1: Validating required fields...");
 		const missing = requireFields(req.body, ['name', 'email', 'password', 'studentId', 'whatsappNumber', 'otp']);
 		if (missing) {
@@ -184,6 +205,16 @@ console.log("Existing student ID check result:", existingStudent ? "Found existi
 
 		// Verify OTP
 		const user = existingEmail || await User.findOne({ email: email.toLowerCase() });
+		console.log("User found for OTP verification:", user ? "Yes" : "No");
+		if (user) {
+			console.log("User OTP status:", {
+				hasOtpHash: !!user.otpHash,
+				hasOtpExpiresAt: !!user.otpExpiresAt,
+				otpExpiresAt: user.otpExpiresAt,
+				currentTime: new Date()
+			});
+		}
+		
 		if (!user || !user.otpHash || !user.otpExpiresAt) {
 			return res.status(400).json({ error: 'OTP not requested or expired. Please request OTP first.' });
 		}
@@ -194,20 +225,33 @@ console.log("Existing student ID check result:", existingStudent ? "Found existi
 		}
 
 		const providedOtpHash = hashOtp(otp);
+		console.log("OTP verification:", {
+			providedOtp: otp,
+			providedHash: providedOtpHash,
+			storedHash: user.otpHash,
+			hashesMatch: providedOtpHash === user.otpHash
+		});
+		
 		if (providedOtpHash !== user.otpHash) {
+			console.log("❌ OTP verification failed - hashes don't match");
 			// Increment verification attempts
 			await User.findByIdAndUpdate(user._id, { 
 				$inc: { otpVerifyAttempts: 1 } 
 			});
 			return res.status(400).json({ error: 'Invalid OTP' });
 		}
+		
+		console.log("✅ OTP verification successful");
 
 		// OTP is valid, complete the signup
+		console.log("Step 2: Creating password hash...");
 		const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+		console.log("✅ Password hash created");
 		
 		if (existingEmail) {
+			console.log("Step 3: Updating existing pending user...");
 			// Update existing pending user
-			await User.findByIdAndUpdate(user._id, {
+			const updateResult = await User.findByIdAndUpdate(user._id, {
 				name,
 				passwordHash,
 				studentId,
@@ -221,9 +265,11 @@ console.log("Existing student ID check result:", existingStudent ? "Found existi
 					otpRequestWindowStart: 1
 				}
 			});
+			console.log("✅ User updated successfully");
 		} else {
+			console.log("Step 3: Creating new verified user...");
 			// Create new verified user
-			await User.create({ 
+			const newUser = await User.create({ 
 				name, 
 				email: email.toLowerCase(), 
 				passwordHash, 
@@ -231,6 +277,7 @@ console.log("Existing student ID check result:", existingStudent ? "Found existi
 				whatsappNumber,
 				status: 'verified'
 			});
+			console.log("✅ New user created successfully");
 		}
 
 		const finalUser = await User.findOne({ email: email.toLowerCase() });
@@ -253,6 +300,26 @@ return res.status(201).json({
 			createdAt: finalUser.createdAt,
 		});
 	} catch (error) {
+		console.error('=== SIGNUP ERROR ===');
+		console.error('Error type:', error.name);
+		console.error('Error message:', error.message);
+		console.error('Error stack:', error.stack);
+		
+		// Handle specific MongoDB errors
+		if (error.name === 'ValidationError') {
+			const errors = Object.values(error.errors).map(err => err.message);
+			return res.status(400).json({ error: `Validation error: ${errors.join(', ')}` });
+		}
+		
+		if (error.code === 11000) {
+			const field = Object.keys(error.keyPattern)[0];
+			return res.status(409).json({ error: `${field} already exists` });
+		}
+		
+		if (error.name === 'CastError') {
+			return res.status(400).json({ error: 'Invalid data format' });
+		}
+		
 		console.error('Signup error', error);
 		return res.status(500).json({ error: 'Internal server error' });
 	}
@@ -286,4 +353,129 @@ console.log("? Missing field:", missing);
 	}
 }
 
-module.exports = { signup, login, requestOtp, verifyOtp };
+async function createTestUser(req, res) {
+	try {
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for test user creation...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for test user');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		// Check if test user already exists
+		const existingUser = await User.findOne({ email: 'test@university.edu' });
+		if (existingUser) {
+			return res.json({ 
+				message: 'Test user already exists',
+				user: { 
+					id: existingUser._id, 
+					name: existingUser.name, 
+					email: existingUser.email 
+				}
+			});
+		}
+
+		// Create test user
+		const passwordHash = await bcrypt.hash('test123', SALT_ROUNDS);
+		const testUser = await User.create({
+			name: 'Test User',
+			email: 'test@university.edu',
+			passwordHash: passwordHash,
+			studentId: 'TEST001',
+			whatsappNumber: '+1234567890',
+			status: 'verified',
+			isVerified: true
+		});
+
+		console.log('✅ Test user created successfully');
+		return res.status(201).json({
+			message: 'Test user created successfully',
+			user: {
+				id: testUser._id,
+				name: testUser.name,
+				email: testUser.email,
+				studentId: testUser.studentId
+			}
+		});
+	} catch (error) {
+		console.error('createTestUser error', error);
+		return res.status(500).json({ error: 'Internal server error' });
+	}
+}
+
+// Simple test user creation without OTP
+async function createSimpleTestUser(req, res) {
+	try {
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for simple test user creation...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for simple test user');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		// Check if test user already exists
+		const existingUser = await User.findOne({ email: 'test@university.edu' });
+		if (existingUser) {
+			return res.json({ 
+				message: 'Test user already exists',
+				user: { 
+					id: existingUser._id, 
+					name: existingUser.name, 
+					email: existingUser.email 
+				}
+			});
+		}
+
+		// Create test user
+		const passwordHash = await bcrypt.hash('test123', SALT_ROUNDS);
+		const testUser = await User.create({
+			name: 'Test User',
+			email: 'test@university.edu',
+			passwordHash: passwordHash,
+			studentId: 'TEST001',
+			whatsappNumber: '+1234567890',
+			status: 'verified',
+			isVerified: true
+		});
+
+		console.log('✅ Simple test user created successfully');
+		return res.status(201).json({
+			message: 'Test user created successfully',
+			user: {
+				id: testUser._id,
+				name: testUser.name,
+				email: testUser.email,
+				studentId: testUser.studentId
+			}
+		});
+	} catch (error) {
+		console.error('createSimpleTestUser error', error);
+		return res.status(500).json({ error: 'Internal server error' });
+	}
+}
+
+module.exports = { signup, login, requestOtp, verifyOtp, createTestUser, createSimpleTestUser };

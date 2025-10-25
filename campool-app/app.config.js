@@ -1,11 +1,12 @@
 export default {
   expo: {
-    name: "Campool",
-    slug: "campool",
+    name: "Hamraah",
+    slug: "hamraah",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     userInterfaceStyle: "light",
+    scheme: "hamraah",
     splash: {
       image: "./assets/images/splash.png",
       resizeMode: "contain",
@@ -16,7 +17,7 @@ export default {
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.yourcompany.campool",
+      bundleIdentifier: "com.yourcompany.hamraah",
       buildNumber: "1.0.0"
     },
     android: {
@@ -24,7 +25,7 @@ export default {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#2d6a4f"
       },
-      package: "com.yourcompany.campool",
+      package: "com.yourcompany.hamraah",
       versionCode: 1,
       permissions: [
         "android.permission.INTERNET",
@@ -44,13 +45,13 @@ export default {
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Campool to use your location to find nearby rides and share your location with other users."
+          "locationAlwaysAndWhenInUsePermission": "Allow Hamraah to use your location to find nearby rides and share your location with other users."
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Campool to access your camera to take photos for your profile and share images in chat."
+          "cameraPermission": "Allow Hamraah to access your camera to take photos for your profile and share images in chat."
         }
       ]
     ],

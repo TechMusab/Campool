@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,8 +15,10 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import rideCoordinationService from '@/services/rideCoordinationService';
+import { API_CONFIG, checkNetworkStatus } from '@/config/api';
+import OfflineIndicator from '@/components/OfflineIndicator';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-l1un.vercel.app';
+const API_BASE = API_CONFIG.BASE_URL;
 const { width } = Dimensions.get('window');
 
 interface RideStats {
@@ -50,6 +53,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userType, setUserType] = useState<'passenger' | 'driver'>('passenger');
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -58,29 +62,76 @@ export default function DashboardScreen() {
 
   const loadDashboardData = async () => {
     try {
-    const token = await AsyncStorage.getItem('campool_token');
-    if (!token) return;
+      const token = await AsyncStorage.getItem('campool_token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
-      // Load user stats
-      const statsResponse = await axios.get(`${API_BASE}/stats/dashboard`, {
-        headers: { Authorization: `Bearer ${token}` },
+      // Set default stats for offline mode
+      setStats({
+        totalRides: 0,
+        completedRides: 0,
+        totalSaved: 0,
+        co2Saved: 0,
+        avgRating: 0,
       });
-      setStats(statsResponse.data);
 
-      // Load recent rides
-      const ridesResponse = await axios.get(`${API_BASE}/rides/recent`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setRecentRides(ridesResponse.data);
+      // Check network status first
+      const isOnline = await checkNetworkStatus();
+      setIsOffline(!isOnline);
+      if (!isOnline) {
+        console.log('No network connection, using offline mode');
+        return;
+      }
 
-      // Determine user type
-      const userResponse = await axios.get(`${API_BASE}/users/profile`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setUserType(userResponse.data.isDriver ? 'driver' : 'passenger');
+      // Try to load user stats with timeout
+      try {
+        const statsResponse = await axios.get(`${API_BASE}/stats/dashboard`, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: API_CONFIG.TIMEOUT,
+        });
+        setStats(statsResponse.data);
+      } catch (statsError) {
+        console.log('Stats API unavailable, using defaults');
+      }
+
+      // Try to load recent rides
+      try {
+        const ridesResponse = await axios.get(`${API_BASE}/rides/recent`, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: API_CONFIG.TIMEOUT,
+        });
+        setRecentRides(ridesResponse.data);
+      } catch (ridesError) {
+        console.log('Recent rides API unavailable, using defaults');
+        setRecentRides([]);
+      }
+
+      // Try to determine user type
+      try {
+        const userResponse = await axios.get(`${API_BASE}/users/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: API_CONFIG.TIMEOUT,
+        });
+        setUserType(userResponse.data.isDriver ? 'driver' : 'passenger');
+      } catch (userError) {
+        console.log('User profile API unavailable, defaulting to passenger');
+        setUserType('passenger');
+      }
 
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      // Set default values for offline mode
+      setStats({
+        totalRides: 0,
+        completedRides: 0,
+        totalSaved: 0,
+        co2Saved: 0,
+        avgRating: 0,
+      });
+      setRecentRides([]);
+      setUserType('passenger');
     } finally {
       setLoading(false);
     }
@@ -92,11 +143,36 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('campool_token');
+              router.replace('/login');
+            } catch (error) {
+              console.error('Error logging out:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const StatCard = ({ title, value, icon, color, subtitle }: {
     title: string;
     value: string | number;
     icon: string;
-    color: string[];
+    color: [string, string];
     subtitle?: string;
   }) => (
     <View style={styles.statCard}>
@@ -152,16 +228,25 @@ export default function DashboardScreen() {
   }
 
   return (
+    <>
+      <OfflineIndicator isVisible={isOffline} />
       <ScrollView 
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Dashboard</Text>
-        <Text style={styles.headerSubtitle}>
-          {userType === 'driver' ? 'Driver Overview' : 'Passenger Overview'}
-        </Text>
+        style={styles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>Dashboard</Text>
+            <Text style={styles.headerSubtitle}>
+              {userType === 'driver' ? 'Driver Overview' : 'Passenger Overview'}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+            <Ionicons name="log-out-outline" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
           </View>
 
       {/* Stats Grid */}
@@ -251,7 +336,8 @@ export default function DashboardScreen() {
           </View>
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </>
   );
 }
 
@@ -270,6 +356,11 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     backgroundColor: '#2d6a4f',
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -279,6 +370,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#a7f3d0',
     marginTop: 4,
+  },
+  logoutButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   statsGrid: {
     flexDirection: 'row',

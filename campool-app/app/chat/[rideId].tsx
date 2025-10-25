@@ -9,7 +9,7 @@ import { fetchMessages, markRead } from '@/services/chatApi';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
-const SERVER_URL = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-l1un.vercel.app';
+const SERVER_URL = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app';
 
 type Message = { _id: string; rideId: string; senderId: string; senderName: string; text: string; createdAt: string; isSystemMessage?: boolean };
 

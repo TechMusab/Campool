@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, FlatList, ActivityIndicator, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, StyleSheet, FlatList, ActivityIndicator, ScrollView, TouchableOpacity, Platform, Alert } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios';
 import RideCard, { Ride } from '@/components/RideCard';
@@ -7,10 +7,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/components/Logo';
 import { spacing, borderRadius, fontSize, colors } from '@/constants/spacing';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-l1un.vercel.app';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app';
 
 export default function SearchRidesScreen() {
+  const router = useRouter();
   const [startPoint, setStartPoint] = useState('');
   const [destination, setDestination] = useState('');
   const [date, setDate] = useState<Date | undefined>(undefined);
@@ -18,6 +21,15 @@ export default function SearchRidesScreen() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Ride[]>([]);
   const [searchPerformed, setSearchPerformed] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+
+  // Load token on mount
+  useEffect(() => {
+    (async () => {
+      const t = await AsyncStorage.getItem('campool_token');
+      setToken(t);
+    })();
+  }, []);
 
   async function onSearch() {
     try {
@@ -47,11 +59,29 @@ export default function SearchRidesScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Logo size="medium" showText={false} />
-        <Text style={styles.title}>Find a Ride</Text>
-        <Text style={styles.subtitle}>Search for available rides</Text>
-      </View>
+      <LinearGradient
+        colors={['#2d6a4f', '#1b9aaa']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Find a Ride</Text>
+          <Text style={styles.headerSubtitle}>Search for available rides</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => router.push('/post-ride')}
+          style={styles.postRideButton}
+        >
+          <Ionicons name="add-circle-outline" size={24} color="white" />
+        </TouchableOpacity>
+      </LinearGradient>
 
       {/* Search Form - Hidden after search */}
       {!searchPerformed && (
@@ -158,28 +188,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    paddingTop: 60,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: spacing.huge + spacing.xl,
-    paddingBottom: spacing.xl,
-    backgroundColor: colors.surface,
-    borderBottomLeftRadius: borderRadius.lg + 8,
-    borderBottomRightRadius: borderRadius.lg + 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 3,
+    justifyContent: 'space-between',
   },
-  title: {
-    fontSize: fontSize.title,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
+  backButton: {
+    padding: 8,
   },
-  subtitle: {
-    fontSize: fontSize.base,
-    color: colors.textSecondary,
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
+  },
+  postRideButton: {
+    padding: 8,
   },
   searchForm: {
     padding: spacing.xxl,

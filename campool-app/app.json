@@ -1,12 +1,12 @@
 {
   "$schema": "https://docs.expo.dev/versions/latest/config/app.config.schema.json",
   "expo": {
-    "name": "campool-app",
-    "slug": "campool-app",
+    "name": "Hamraah",
+    "slug": "hamraah",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "campool-app",
+    "scheme": "hamraah",
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
@@ -16,7 +16,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.musab.campoLIol",
+      "package": "com.musab.hamraah",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"

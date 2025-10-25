@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-l1un.vercel.app';
 
 export async function requestOtp(email: string) {
   console.log('🔍 Requesting OTP from:', `${API_BASE}/api/auth/request-otp`);

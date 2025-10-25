@@ -81,33 +81,49 @@ export default function SignupScreen() {
 
   async function onSubmit() {
     console.log("=== FRONTEND SIGNUP START ===");
-    console.log("Form data:", { name, email, studentId, passwordLength: password.length });
+    console.log("Form data:", { name, email, studentId, passwordLength: password.length, whatsappNumber, otpLength: otp.length });
     console.log("API endpoint:", `${API_BASE}/api/auth/signup`);
+    console.log("API_BASE from env:", process.env.EXPO_PUBLIC_API_BASE);
+    
     if (!validate()) return;
     try {
       setLoading(true);
-      await axios.post(`${API_BASE}/api/auth/signup`, {
+      
+      const signupData = {
         name,
         email,
         password,
         studentId,
         whatsappNumber,
         otp,
-      });
+      };
+      
+      console.log("Sending signup request with data:", signupData);
+      
+      const response = await axios.post(`${API_BASE}/api/auth/signup`, signupData);
+      
       console.log("✓ Signup successful!");
+      console.log("Response data:", response.data);
       Alert.alert("Success", "Account created successfully! Please login.");
       router.replace('/login');
     } catch (e: any) {
       console.log("=== FRONTEND SIGNUP ERROR ===");
       console.error("Error details:", e);
       console.error("Error message:", e.message);
+      console.error("Error code:", e.code);
+      
       if (e.response) {
         console.error("Response status:", e.response.status);
         console.error("Response data:", e.response.data);
+        console.error("Response headers:", e.response.headers);
       } else if (e.request) {
         console.error("Network error - no response received");
+        console.error("Request details:", e.request);
+      } else {
+        console.error("Request setup error:", e.message);
       }
-      const msg = e?.response?.data?.error || 'Signup failed';
+      
+      const msg = e?.response?.data?.error || e?.message || 'Signup failed';
       Alert.alert('Error', msg);
     } finally {
       setLoading(false);

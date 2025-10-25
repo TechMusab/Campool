@@ -50,6 +50,7 @@ try {
 	const ratingRoutes = require('./routes/ratingRoutes');
 	const statsRoutes = require('./routes/statsRoutes');
 	const dashboardRoutes = require('./routes/dashboardRoutes');
+	const userRoutes = require('./routes/userRoutes');
 
 	app.use('/api/auth', authRoutes);
 	app.use('/api', rideRoutes);
@@ -57,6 +58,7 @@ try {
 	app.use('/api', ratingRoutes);
 	app.use('/api', statsRoutes);
 	app.use('/api/dashboard', dashboardRoutes);
+	app.use('/api/users', userRoutes);
 	
 	console.log('All routes loaded successfully');
 } catch (error) {

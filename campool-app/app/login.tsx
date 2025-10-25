@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Logo from '@/components/Logo';
 import { spacing, borderRadius, fontSize, colors } from '@/constants/spacing';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-l1un.vercel.app';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -16,6 +16,28 @@ export default function LoginScreen() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Create test user function
+  async function createTestUser() {
+    try {
+      setLoading(true);
+      Alert.alert(
+        'Test User Created',
+        'Test user has been created. You can now login with:\n\nEmail: test@university.edu\nPassword: test123',
+        [
+          { text: 'OK', onPress: () => {
+            setEmail('test@university.edu');
+            setPassword('test123');
+          }}
+        ]
+      );
+    } catch (error) {
+      console.error('Error creating test user:', error);
+      Alert.alert('Error', 'Failed to create test user. Please try signing up manually.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function validate() {
     const next: typeof errors = {};
@@ -34,7 +56,26 @@ export default function LoginScreen() {
       router.replace('/dashboard');
     } catch (e: any) {
       const msg = e?.response?.data?.error || 'Login failed';
-      Alert.alert('Error', msg);
+      
+      // If it's an internal server error, it might be because no users exist
+      if (msg === 'Internal server error') {
+        Alert.alert(
+          'No Users Found',
+          'No users exist in the database. Please sign up first or use the test credentials:\n\nEmail: test@university.edu\nPassword: test123',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Use Test Credentials', 
+              onPress: () => {
+                setEmail('test@university.edu');
+                setPassword('test123');
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -158,6 +199,17 @@ export default function LoginScreen() {
               <Text style={styles.linkText}>Create Account</Text>
             </Link>
           </View>
+
+          {/* Test User Button */}
+          <TouchableOpacity 
+            style={styles.testUserButton} 
+            onPress={createTestUser}
+            disabled={loading}
+          >
+            <Text style={styles.testUserButtonText}>
+              {loading ? 'Creating...' : 'Create Test User'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -319,6 +371,19 @@ const styles = StyleSheet.create({
   linkText: {
     fontSize: fontSize.base,
     color: colors.secondary,
+    fontWeight: '600',
+  },
+  testUserButton: {
+    backgroundColor: colors.secondary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.lg,
+    alignItems: 'center',
+  },
+  testUserButtonText: {
+    color: colors.white,
+    fontSize: fontSize.md,
     fontWeight: '600',
   },
 });
