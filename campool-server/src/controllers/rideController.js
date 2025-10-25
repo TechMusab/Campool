@@ -247,4 +247,192 @@ async function getRideMessages(req, res) {
 	}
 }
 
-module.exports = { createRide, searchRides, getRideById, testRideCreation, getRideMessages }; 
+// Simple message creation endpoint
+async function createMessage(req, res) {
+	try {
+		console.log('createMessage called with body:', req.body);
+		
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for message creation...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for message creation');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		const { rideId, text } = req.body;
+		if (!rideId || !text) {
+			return res.status(400).json({ error: 'rideId and text are required' });
+		}
+
+		const Message = require('../models/Message');
+		const User = require('../models/User');
+
+		// Verify ride exists
+		const ride = await Ride.findById(rideId);
+		if (!ride) {
+			return res.status(404).json({ error: 'Ride not found' });
+		}
+
+		// Get user info
+		const user = await User.findById(req.userId);
+		if (!user) {
+			return res.status(404).json({ error: 'User not found' });
+		}
+
+		// Create message
+		const message = await Message.create({
+			rideId,
+			senderId: req.userId,
+			senderName: user.name,
+			text: text.trim(),
+		});
+
+		console.log('Message created successfully:', message._id);
+		return res.status(201).json({ success: true, message });
+	} catch (err) {
+		console.error('createMessage error', err);
+		return res.status(500).json({ error: 'Internal server error', details: err.message });
+	}
+}
+
+// Get messages for a ride
+async function getMessages(req, res) {
+	try {
+		console.log('getMessages called for ride:', req.params.id);
+		
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for messages...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for messages');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		const Message = require('../models/Message');
+		const rideId = req.params.id;
+		
+		if (!mongoose.isValidObjectId(rideId)) {
+			return res.status(400).json({ error: 'Invalid ride ID' });
+		}
+
+		// Verify ride exists
+		const ride = await Ride.findById(rideId);
+		if (!ride) {
+			return res.status(404).json({ error: 'Ride not found' });
+		}
+
+		// Get messages for this ride
+		const messages = await Message.find({ rideId })
+			.sort({ createdAt: 1 })
+			.lean();
+
+		console.log('Found messages:', messages.length);
+		return res.json(messages);
+	} catch (err) {
+		console.error('getMessages error', err);
+		return res.status(500).json({ error: 'Internal server error', details: err.message });
+	}
+}
+
+// Get user's inbox
+async function getInbox(req, res) {
+	try {
+		console.log('getInbox called for user:', req.userId);
+		
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for inbox...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for inbox');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
+		const Message = require('../models/Message');
+		const User = require('../models/User');
+		const userId = req.userId;
+
+		// Get all messages where user is involved
+		const messages = await Message.find({
+			$or: [
+				{ senderId: userId },
+				{ 'rideId.driverId': userId }
+			]
+		})
+		.populate('rideId', 'startPoint destination driverId')
+		.sort({ createdAt: -1 })
+		.limit(100);
+
+		// Group messages by rideId
+		const conversations = new Map();
+		for (const message of messages) {
+			const rideId = message.rideId._id.toString();
+			if (!conversations.has(rideId)) {
+				let otherParticipant = null;
+				if (message.rideId.driverId.toString() === userId) {
+					otherParticipant = { name: message.senderName, id: message.senderId };
+				} else {
+					const driver = await User.findById(message.rideId.driverId).select('name').lean();
+					otherParticipant = { name: driver?.name || 'Driver', id: message.rideId.driverId.toString() };
+				}
+				conversations.set(rideId, {
+					id: rideId,
+					rideId: rideId,
+					rideTitle: `${message.rideId.startPoint} → ${message.rideId.destination}`,
+					lastMessage: message.text,
+					lastMessageTime: message.createdAt,
+					unreadCount: 0,
+					otherParticipant: otherParticipant
+				});
+			} else {
+				const conv = conversations.get(rideId);
+				if (new Date(message.createdAt) > new Date(conv.lastMessageTime)) {
+					conv.lastMessage = message.text;
+					conv.lastMessageTime = message.createdAt;
+				}
+			}
+		}
+
+		const inbox = Array.from(conversations.values()).sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
+		console.log('Inbox conversations:', inbox.length);
+		return res.json(inbox);
+	} catch (err) {
+		console.error('getInbox error', err);
+		return res.status(500).json({ error: 'Internal server error', details: err.message });
+	}
+}
+
+module.exports = { createRide, searchRides, getRideById, testRideCreation, getRideMessages, createMessage, getMessages, getInbox }; 

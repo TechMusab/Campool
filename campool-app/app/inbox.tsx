@@ -48,7 +48,7 @@ export default function InboxScreen() {
 
       // Try to load real chat data from API
       try {
-        const response = await fetch(`${process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app'}/api/users/inbox`, {
+        const response = await fetch(`${process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app'}/api/messages/inbox`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

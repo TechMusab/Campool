@@ -97,7 +97,7 @@ export default function ChatScreen() {
     try {
       console.log('Loading messages for ride:', rideId);
       const token = await AsyncStorage.getItem('campool_token');
-      const response = await fetch(`${SERVER_URL}/api/rides/${rideId}/messages`, {
+      const response = await fetch(`${SERVER_URL}/api/messages/ride/${rideId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -125,23 +125,15 @@ export default function ChatScreen() {
     setMessages((prev) => [...prev, temp]);
     flatListRef.current?.scrollToEnd({ animated: true });
     
-    // Try socket first, then fallback to API
-    socket.sendMessage({ rideId, text }, (res: any) => {
-      console.log('Send message response:', res);
-      if (res?.ok && res.message) {
-        setMessages((prev) => prev.map((m) => (m._id === temp._id ? res.message : m)));
-      } else {
-        console.log('Socket send failed, trying API fallback:', res);
-        sendViaAPI(rideId, text, temp);
-      }
-    });
+    // Use API directly for message sending
+    sendViaAPI(rideId, text, temp);
   }
 
   async function sendViaAPI(rideId: string, text: string, temp: TempMessage) {
     try {
       console.log('Sending message via API:', { rideId, text });
       const token = await AsyncStorage.getItem('campool_token');
-      const response = await fetch(`${SERVER_URL}/api/users/create-message`, {
+      const response = await fetch(`${SERVER_URL}/api/messages/create`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
