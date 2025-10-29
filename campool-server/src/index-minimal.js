@@ -407,6 +407,46 @@ app.post('/api/rides', (req, res) => {
 	}
 });
 
+// Search rides endpoint (must come before /api/rides/:id)
+app.get('/api/rides/search', (req, res) => {
+	try {
+		console.log('Search rides endpoint called');
+		const { startPoint, destination, date } = req.query;
+		
+		let rides = Array.from(ridesStorage.values());
+		console.log(`Found ${rides.length} rides in storage`);
+		
+		// Filter rides based on search criteria
+		if (startPoint) {
+			rides = rides.filter(ride => 
+				ride.startPoint.toLowerCase().includes(startPoint.toLowerCase())
+			);
+		}
+		
+		if (destination) {
+			rides = rides.filter(ride => 
+				ride.destination.toLowerCase().includes(destination.toLowerCase())
+			);
+		}
+		
+		if (date) {
+			rides = rides.filter(ride => ride.date === date);
+		}
+
+		console.log(`Returning ${rides.length} filtered rides`);
+		res.json({
+			success: true,
+			items: rides, // Changed from 'rides' to 'items' to match frontend expectation
+			rides: rides, // Keep both for compatibility
+			count: rides.length
+		});
+
+	} catch (error) {
+		console.error('Search rides error:', error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
 // Get single ride endpoint
 app.get('/api/rides/:id', (req, res) => {
 	try {
@@ -483,45 +523,6 @@ app.post('/api/rides/join', (req, res) => {
 	}
 });
 
-// Search rides endpoint
-app.get('/api/rides/search', (req, res) => {
-	try {
-		console.log('Search rides endpoint called');
-		const { startPoint, destination, date } = req.query;
-		
-		let rides = Array.from(ridesStorage.values());
-		console.log(`Found ${rides.length} rides in storage`);
-		
-		// Filter rides based on search criteria
-		if (startPoint) {
-			rides = rides.filter(ride => 
-				ride.startPoint.toLowerCase().includes(startPoint.toLowerCase())
-			);
-		}
-		
-		if (destination) {
-			rides = rides.filter(ride => 
-				ride.destination.toLowerCase().includes(destination.toLowerCase())
-			);
-		}
-		
-		if (date) {
-			rides = rides.filter(ride => ride.date === date);
-		}
-
-		console.log(`Returning ${rides.length} filtered rides`);
-		res.json({
-			success: true, 
-			items: rides, // Changed from 'rides' to 'items' to match frontend expectation
-			rides: rides, // Keep both for compatibility
-			count: rides.length
-		});
-
-	} catch (error) {
-		console.error('Search rides error:', error);
-		res.status(500).json({ error: 'Internal server error' });
-	}
-});
 
 // Export for Vercel
 module.exports = app;
