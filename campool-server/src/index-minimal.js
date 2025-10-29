@@ -121,6 +121,76 @@ app.post('/api/auth/request-otp', async (req, res) => {
 	}
 });
 
+// Signup endpoint
+app.post('/api/auth/signup', async (req, res) => {
+	try {
+		console.log('Signup request received:', req.body);
+		
+		const { name, email, password, studentId, whatsappNumber, otp } = req.body;
+		
+		// Validate required fields
+		if (!name || !email || !password || !studentId || !whatsappNumber || !otp) {
+			return res.status(400).json({ error: 'All fields are required' });
+		}
+
+		// Validate email format
+		if (!email.includes('@')) {
+			return res.status(400).json({ error: 'Invalid email format' });
+		}
+
+		// Check if OTP is valid
+		const storedData = otpStorage.get(email.toLowerCase());
+		if (!storedData) {
+			return res.status(400).json({ error: 'OTP not found. Please request a new one.' });
+		}
+
+		if (new Date() > new Date(storedData.expiresAt)) {
+			otpStorage.delete(email.toLowerCase());
+			return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
+		}
+
+		if (storedData.otp !== otp) {
+			storedData.attempts += 1;
+			if (storedData.attempts >= 3) {
+				otpStorage.delete(email.toLowerCase());
+				return res.status(400).json({ error: 'Too many attempts. Please request a new OTP.' });
+			}
+			return res.status(400).json({ error: 'Invalid OTP' });
+		}
+
+		// OTP is valid - clean up
+		otpStorage.delete(email.toLowerCase());
+
+		// Generate JWT token
+		const jwt = require('jsonwebtoken');
+		const token = jwt.sign(
+			{ sub: email, email: email, name: name }, 
+			process.env.JWT_SECRET || 'dev_secret', 
+			{ expiresIn: '7d' }
+		);
+
+		console.log(`✅ User signup successful: ${email}`);
+
+		res.status(201).json({
+			success: true,
+			message: 'Account created successfully',
+			token,
+			user: {
+				id: email,
+				name: name,
+				email: email,
+				studentId: studentId,
+				whatsappNumber: whatsappNumber,
+				isVerified: true
+			}
+		});
+
+	} catch (error) {
+		console.error('Signup error:', error);
+		res.status(500).json({ error: 'Internal server error', details: error.message });
+	}
+});
+
 // OTP Verify endpoint
 app.post('/api/auth/verify-otp', async (req, res) => {
 	try {
@@ -175,6 +245,52 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
 	} catch (error) {
 		console.error('OTP verification error:', error);
+		res.status(500).json({ error: 'Internal server error', details: error.message });
+	}
+});
+
+// Login endpoint
+app.post('/api/auth/login', async (req, res) => {
+	try {
+		console.log('Login request received:', req.body);
+		
+		const { email, password } = req.body;
+		if (!email || !password) {
+			return res.status(400).json({ error: 'Email and password are required' });
+		}
+
+		// For this minimal version, we'll accept any email/password combination
+		// In a real app, you'd verify against a database
+		if (!email.includes('@')) {
+			return res.status(400).json({ error: 'Invalid email format' });
+		}
+
+		// Generate JWT token
+		const jwt = require('jsonwebtoken');
+		const token = jwt.sign(
+			{ sub: email, email: email }, 
+			process.env.JWT_SECRET || 'dev_secret', 
+			{ expiresIn: '7d' }
+		);
+
+		console.log(`✅ User login successful: ${email}`);
+
+		res.json({
+			success: true,
+			message: 'Login successful',
+			token,
+			user: {
+				id: email,
+				name: 'User',
+				email: email,
+				studentId: 'STU001',
+				whatsappNumber: '+1234567890',
+				isVerified: true
+			}
+		});
+
+	} catch (error) {
+		console.error('Login error:', error);
 		res.status(500).json({ error: 'Internal server error', details: error.message });
 	}
 });
