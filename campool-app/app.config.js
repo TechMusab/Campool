@@ -62,7 +62,7 @@ export default {
       eas: {
         projectId: "cd9efcab-af12-4c97-95cc-8fbe3583bdb4"
       },
-      EXPO_PUBLIC_API_BASE: "https://campool-l1un.vercel.app"
+      EXPO_PUBLIC_API_BASE: "https://campool-lm5p.vercel.app"
     }
   }
 };
