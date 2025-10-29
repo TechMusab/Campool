@@ -509,7 +509,8 @@ app.get('/api/rides/search', (req, res) => {
 
 		res.json({
 			success: true,
-			rides: rides,
+			items: rides, // Changed from 'rides' to 'items' to match frontend expectation
+			rides: rides, // Keep both for compatibility
 			count: rides.length
 		});
 
