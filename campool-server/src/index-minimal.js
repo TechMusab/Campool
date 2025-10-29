@@ -13,8 +13,9 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// In-memory storage for OTPs (for testing only)
+// In-memory storage for OTPs and rides (for testing only)
 const otpStorage = new Map();
+const ridesStorage = new Map();
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -106,8 +107,8 @@ app.post('/api/auth/request-otp', async (req, res) => {
 			console.log(`📧 OTP: ${otp}`);
 			console.log(`📧 Expires in: 2 minutes`);
 			console.log(`📧 ==============================\n`);
-			
-			res.json({ 
+		
+		res.json({ 
 				success: true, 
 				message: 'OTP sent successfully (check console for debugging)',
 				otp: otp, // Include OTP in response for debugging
@@ -172,7 +173,7 @@ app.post('/api/auth/signup', async (req, res) => {
 		console.log(`✅ User signup successful: ${email}`);
 
 		res.status(201).json({
-			success: true,
+			success: true, 
 			message: 'Account created successfully',
 			token,
 			user: {
@@ -276,7 +277,7 @@ app.post('/api/auth/login', async (req, res) => {
 		console.log(`✅ User login successful: ${email}`);
 
 		res.json({
-			success: true,
+			success: true, 
 			message: 'Login successful',
 			token,
 			user: {
@@ -292,6 +293,180 @@ app.post('/api/auth/login', async (req, res) => {
 	} catch (error) {
 		console.error('Login error:', error);
 		res.status(500).json({ error: 'Internal server error', details: error.message });
+	}
+});
+
+// Get all rides endpoint
+app.get('/api/rides', (req, res) => {
+	try {
+		const rides = Array.from(ridesStorage.values());
+		res.json({
+			success: true,
+			rides: rides
+		});
+	} catch (error) {
+		console.error('Get rides error:', error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
+// Post ride endpoint
+app.post('/api/rides', (req, res) => {
+	try {
+		console.log('Post ride request received:', req.body);
+		
+		const { startPoint, destination, date, time, availableSeats, costPerSeat, driverId } = req.body;
+		
+		// Validate required fields
+		if (!startPoint || !destination || !date || !time || !availableSeats || !costPerSeat) {
+			return res.status(400).json({ error: 'All fields are required' });
+		}
+
+		// Create ride object
+		const rideId = `ride_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		const ride = {
+			_id: rideId,
+			startPoint,
+			destination,
+			date,
+			time,
+			availableSeats: parseInt(availableSeats),
+			costPerSeat: parseFloat(costPerSeat),
+			totalCost: parseInt(availableSeats) * parseFloat(costPerSeat),
+			perPassengerCost: parseFloat(costPerSeat),
+			distanceKm: 10, // Default distance
+			driverId: driverId || 'unknown',
+			passengers: [],
+			status: 'pending',
+			createdAt: new Date().toISOString()
+		};
+
+		// Store ride
+		ridesStorage.set(rideId, ride);
+
+		console.log(`✅ Ride created successfully: ${rideId}`);
+
+		res.status(201).json({
+			success: true,
+			message: 'Ride posted successfully',
+			ride: ride
+		});
+
+	} catch (error) {
+		console.error('Post ride error:', error);
+		res.status(500).json({ error: 'Internal server error', details: error.message });
+	}
+});
+
+// Get single ride endpoint
+app.get('/api/rides/:id', (req, res) => {
+	try {
+		const rideId = req.params.id;
+		const ride = ridesStorage.get(rideId);
+		
+		if (!ride) {
+			return res.status(404).json({ error: 'Ride not found' });
+		}
+
+		res.json({
+			success: true,
+			ride: ride
+		});
+
+	} catch (error) {
+		console.error('Get ride error:', error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
+// Join ride endpoint
+app.post('/api/rides/join', (req, res) => {
+	try {
+		console.log('Join ride request received:', req.body);
+		
+		const { rideId, userId } = req.body;
+		
+		if (!rideId || !userId) {
+			return res.status(400).json({ error: 'rideId and userId are required' });
+		}
+
+		const ride = ridesStorage.get(rideId);
+		if (!ride) {
+			return res.status(404).json({ error: 'Ride not found' });
+		}
+
+		// Check if user is the driver
+		if (ride.driverId === userId) {
+			return res.status(400).json({ error: 'You cannot join your own ride' });
+		}
+
+		// Check if user already joined
+		const existingPassenger = ride.passengers.find(p => p.userId === userId);
+		if (existingPassenger) {
+			return res.status(400).json({ error: 'You have already joined this ride' });
+		}
+
+		// Check available seats
+		if (ride.passengers.length >= ride.availableSeats) {
+			return res.status(400).json({ error: 'No available seats' });
+		}
+
+		// Add passenger
+		ride.passengers.push({
+			userId: userId,
+			joinedAt: new Date().toISOString(),
+			status: 'pending'
+		});
+
+		ridesStorage.set(rideId, ride);
+
+		console.log(`✅ User ${userId} joined ride ${rideId}`);
+
+		res.json({
+			success: true,
+			message: 'Join request sent successfully',
+			ride: ride
+		});
+
+	} catch (error) {
+		console.error('Join ride error:', error);
+		res.status(500).json({ error: 'Internal server error', details: error.message });
+	}
+});
+
+// Search rides endpoint
+app.get('/api/rides/search', (req, res) => {
+	try {
+		const { startPoint, destination, date } = req.query;
+		
+		let rides = Array.from(ridesStorage.values());
+		
+		// Filter rides based on search criteria
+		if (startPoint) {
+			rides = rides.filter(ride => 
+				ride.startPoint.toLowerCase().includes(startPoint.toLowerCase())
+			);
+		}
+		
+		if (destination) {
+			rides = rides.filter(ride => 
+				ride.destination.toLowerCase().includes(destination.toLowerCase())
+			);
+		}
+		
+		if (date) {
+			rides = rides.filter(ride => ride.date === date);
+		}
+
+		res.json({
+			success: true,
+			rides: rides,
+			count: rides.length
+		});
+
+	} catch (error) {
+		console.error('Search rides error:', error);
+		res.status(500).json({ error: 'Internal server error' });
 	}
 });
 
