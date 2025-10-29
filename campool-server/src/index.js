@@ -30,15 +30,10 @@ async function connectDB() {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Attempting to connect to MongoDB...');
 			await mongoose.connect(MONGO_URI, {
-				useNewUrlParser: true,
-				useUnifiedTopology: true,
 				serverSelectionTimeoutMS: 10000, // 10 second timeout
 				socketTimeoutMS: 45000, // 45 second timeout
 				maxPoolSize: 1, // Important for serverless
-				serverSelectionRetryDelayMS: 5000,
 				heartbeatFrequencyMS: 10000,
-				bufferCommands: false, // Disable mongoose buffering
-				bufferMaxEntries: 0, // Disable mongoose buffering
 			});
 			console.log('✅ Connected to MongoDB successfully');
 		} else {

@@ -8,7 +8,7 @@ const router = Router();
 // Get dashboard stats
 router.get('/dashboard', auth, async (req, res) => {
     try {
-        const userId = req.user.sub;
+        const userId = req.userId;
         const user = await User.findById(userId);
         
         if (!user) {
@@ -66,7 +66,7 @@ router.get('/dashboard', auth, async (req, res) => {
 // Get recent rides
 router.get('/recent', auth, async (req, res) => {
     try {
-        const userId = req.user.sub;
+        const userId = req.userId;
         const limit = parseInt(req.query.limit) || 10;
 
         const rides = await Ride.find({
@@ -135,7 +135,7 @@ router.get('/smart-match', auth, async (req, res) => {
 router.post('/:rideId/auto-join', auth, async (req, res) => {
     try {
         const { rideId } = req.params;
-        const userId = req.user.sub;
+        const userId = req.userId;
 
         const ride = await Ride.findById(rideId);
         if (!ride) {
@@ -169,7 +169,7 @@ router.post('/:rideId/auto-join', auth, async (req, res) => {
 router.get('/:rideId/coordination', auth, async (req, res) => {
     try {
         const { rideId } = req.params;
-        const userId = req.user.sub;
+        const userId = req.userId;
 
         const ride = await Ride.findById(rideId)
             .populate('driverId', 'name whatsappNumber')
