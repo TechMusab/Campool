@@ -5,6 +5,7 @@ const { createRide, searchRides, getRideById, testRideCreation, getRideMessages,
 const router = Router();
 
 router.post('/rides/create', auth, createRide);
+router.post('/rides', auth, createRide); // For frontend compatibility
 router.get('/rides/search', searchRides);
 router.get('/rides/:id', getRideById);
 router.get('/rides/:id/messages', auth, getRideMessages);
