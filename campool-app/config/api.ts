@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app',
+  BASE_URL: process.env.EXPO_PUBLIC_API_BASE || 'https://campool-l1un.vercel.app',
   TIMEOUT: 10000, // 10 seconds
   RETRY_ATTEMPTS: 3,
 };

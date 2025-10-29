@@ -113,7 +113,7 @@ export default function OtpVerificationScreen() {
         <View style={styles.content}>
           <Text style={styles.title}>Enter Verification Code</Text>
           <Text style={styles.subtitle}>
-            We've sent a 6-digit code to{'\n'}
+            We&apos;ve sent a 6-digit code to{'\n'}
             <Text style={styles.emailText}>{email}</Text>
           </Text>
 

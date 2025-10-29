@@ -2,7 +2,7 @@
   "$schema": "https://docs.expo.dev/versions/latest/config/app.config.schema.json",
   "expo": {
     "name": "Hamraah",
-    "slug": "hamraah",
+    "slug": "campool-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

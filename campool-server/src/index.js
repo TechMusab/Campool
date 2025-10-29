@@ -28,16 +28,29 @@ const MONGO_URI = process.env.MONGO_URI;
 async function connectDB() {
 	try {
 		if (mongoose.connection.readyState === 0) {
+			console.log('Attempting to connect to MongoDB...');
 			await mongoose.connect(MONGO_URI, {
 				useNewUrlParser: true,
 				useUnifiedTopology: true,
-				serverSelectionTimeoutMS: 5000, // 5 second timeout
+				serverSelectionTimeoutMS: 10000, // 10 second timeout
 				socketTimeoutMS: 45000, // 45 second timeout
+				maxPoolSize: 1, // Important for serverless
+				serverSelectionRetryDelayMS: 5000,
+				heartbeatFrequencyMS: 10000,
+				bufferCommands: false, // Disable mongoose buffering
+				bufferMaxEntries: 0, // Disable mongoose buffering
 			});
-			console.log('Connected to MongoDB');
+			console.log('✅ Connected to MongoDB successfully');
+		} else {
+			console.log('MongoDB already connected, state:', mongoose.connection.readyState);
 		}
 	} catch (error) {
-		console.error('MongoDB connection error:', error);
+		console.error('❌ MongoDB connection error:', error);
+		console.error('Error details:', {
+			message: error.message,
+			code: error.code,
+			name: error.name
+		});
 		// Don't throw error in serverless - let the app continue
 	}
 }

@@ -35,10 +35,19 @@ async function requestOtp(req, res) {
                     serverSelectionTimeoutMS: 15000,
                     socketTimeoutMS: 45000,
                     maxPoolSize: 1, // Important for serverless
+                    serverSelectionRetryDelayMS: 5000,
+                    heartbeatFrequencyMS: 10000,
+                    bufferCommands: false,
+                    bufferMaxEntries: 0,
                 });
                 console.log('✅ MongoDB connected successfully');
             } catch (connectError) {
                 console.error('❌ MongoDB connection failed:', connectError);
+                console.error('Connection error details:', {
+                    message: connectError.message,
+                    code: connectError.code,
+                    name: connectError.name
+                });
                 return res.status(500).json({ error: 'Database connection failed' });
             }
         }
@@ -102,10 +111,19 @@ async function verifyOtp(req, res) {
                     serverSelectionTimeoutMS: 15000,
                     socketTimeoutMS: 45000,
                     maxPoolSize: 1,
+                    serverSelectionRetryDelayMS: 5000,
+                    heartbeatFrequencyMS: 10000,
+                    bufferCommands: false,
+                    bufferMaxEntries: 0,
                 });
                 console.log('✅ MongoDB connected for verification');
             } catch (connectError) {
                 console.error('❌ MongoDB connection failed:', connectError);
+                console.error('Connection error details:', {
+                    message: connectError.message,
+                    code: connectError.code,
+                    name: connectError.name
+                });
                 return res.status(500).json({ error: 'Database connection failed' });
             }
         }

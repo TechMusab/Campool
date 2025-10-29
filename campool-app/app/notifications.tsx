@@ -284,7 +284,7 @@ export default function NotificationsScreen() {
             <Ionicons name="notifications-outline" size={64} color="#9ca3af" />
             <Text style={styles.emptyTitle}>No notifications</Text>
             <Text style={styles.emptyText}>
-              You'll receive notifications when someone wants to join your rides or when your join requests are responded to.
+              You&apos;ll receive notifications when someone wants to join your rides or when your join requests are responded to.
             </Text>
           </View>
         ) : (

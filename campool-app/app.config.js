@@ -1,7 +1,7 @@
 export default {
   expo: {
     name: "Hamraah",
-    slug: "hamraah",
+    slug: "campool-app",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
@@ -25,8 +25,10 @@ export default {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#2d6a4f"
       },
-      package: "com.yourcompany.hamraah",
+      package: "com.musab.hamraah",
       versionCode: 1,
+      compileSdkVersion: 34,
+      targetSdkVersion: 34,
       permissions: [
         "android.permission.INTERNET",
         "android.permission.ACCESS_FINE_LOCATION",
@@ -34,7 +36,8 @@ export default {
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.VIBRATE",
-        "android.permission.WAKE_LOCK"
+        "android.permission.WAKE_LOCK",
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
       ]
     },
     web: {
@@ -58,7 +61,8 @@ export default {
     extra: {
       eas: {
         projectId: "cd9efcab-af12-4c97-95cc-8fbe3583bdb4"
-      }
+      },
+      EXPO_PUBLIC_API_BASE: "https://campool-l1un.vercel.app"
     }
   }
 };

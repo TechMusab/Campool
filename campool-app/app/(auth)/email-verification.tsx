@@ -83,7 +83,7 @@ export default function EmailVerificationScreen() {
           </TouchableOpacity>
 
           <Text style={styles.helpText}>
-            Make sure to check your spam folder if you don't receive the email within a few minutes.
+            Make sure to check your spam folder if you don&apos;t receive the email within a few minutes.
           </Text>
         </View>
       </KeyboardAvoidingView>
