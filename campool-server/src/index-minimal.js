@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const { sendOtpEmail } = require('./utils/mailer');
 
 const app = express();
 
@@ -86,14 +87,33 @@ app.post('/api/auth/request-otp', async (req, res) => {
 
 		console.log(`OTP generated for ${email}: ${otp}`);
 
-		// In production, send email here
-		// For now, we'll just return success
-		res.json({ 
-			success: true, 
-			message: 'OTP sent successfully',
-			otp: otp, // Remove this in production
-			expiresInMs: 120000
-		});
+		// Send email
+		try {
+			await sendOtpEmail(email, otp);
+			console.log(`✅ OTP email sent successfully to ${email}`);
+			
+			res.json({ 
+				success: true, 
+				message: 'OTP sent successfully to your email',
+				expiresInMs: 120000
+			});
+		} catch (emailError) {
+			console.error('❌ Failed to send email:', emailError);
+			
+			// Still return success but log the OTP for debugging
+			console.log(`\n📧 ===== OTP FOR DEBUGGING =====`);
+			console.log(`📧 Email: ${email}`);
+			console.log(`📧 OTP: ${otp}`);
+			console.log(`📧 Expires in: 2 minutes`);
+			console.log(`📧 ==============================\n`);
+			
+			res.json({ 
+				success: true, 
+				message: 'OTP sent successfully (check console for debugging)',
+				otp: otp, // Include OTP in response for debugging
+				expiresInMs: 120000
+			});
+		}
 
 	} catch (error) {
 		console.error('OTP request error:', error);

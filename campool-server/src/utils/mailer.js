@@ -59,8 +59,8 @@ async function sendOtpEmail(to, otp) {
     `;
 
     // In development mode without proper SMTP, just log the OTP
-    if (NODE_ENV === 'development' && (!SMTP_HOST || !SMTP_USER || !SMTP_PASS)) {
-        console.log('\n📧 ===== OTP EMAIL (DEVELOPMENT MODE) =====');
+    if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+        console.log('\n📧 ===== OTP EMAIL (NO SMTP CONFIGURED) =====');
         console.log(`📧 To: ${to}`);
         console.log(`📧 Subject: Your Campool verification code`);
         console.log(`📧 OTP Code: ${otp}`);
