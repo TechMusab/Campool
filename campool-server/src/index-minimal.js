@@ -472,7 +472,7 @@ app.post('/api/rides/join', (req, res) => {
 		console.log(`✅ User ${userId} joined ride ${rideId}`);
 
 		res.json({
-			success: true,
+			success: true, 
 			message: 'Join request sent successfully',
 			ride: ride
 		});
@@ -486,9 +486,11 @@ app.post('/api/rides/join', (req, res) => {
 // Search rides endpoint
 app.get('/api/rides/search', (req, res) => {
 	try {
+		console.log('Search rides endpoint called');
 		const { startPoint, destination, date } = req.query;
 		
 		let rides = Array.from(ridesStorage.values());
+		console.log(`Found ${rides.length} rides in storage`);
 		
 		// Filter rides based on search criteria
 		if (startPoint) {
@@ -507,8 +509,9 @@ app.get('/api/rides/search', (req, res) => {
 			rides = rides.filter(ride => ride.date === date);
 		}
 
+		console.log(`Returning ${rides.length} filtered rides`);
 		res.json({
-			success: true,
+			success: true, 
 			items: rides, // Changed from 'rides' to 'items' to match frontend expectation
 			rides: rides, // Keep both for compatibility
 			count: rides.length
