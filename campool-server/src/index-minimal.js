@@ -310,6 +310,55 @@ app.get('/api/rides', (req, res) => {
 	}
 });
 
+// Post ride endpoint (alternative route for frontend compatibility)
+app.post('/api/rides/create', (req, res) => {
+	try {
+		console.log('Post ride request received:', req.body);
+		
+		const { startPoint, destination, date, time, seats, costPerSeat, distanceKm, passengerPreference } = req.body;
+		
+		// Validate required fields
+		if (!startPoint || !destination || !date || !time || !seats || !costPerSeat) {
+			return res.status(400).json({ error: 'All fields are required' });
+		}
+
+		// Create ride object
+		const rideId = `ride_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		const ride = {
+			_id: rideId,
+			startPoint,
+			destination,
+			date: new Date(date).toISOString().split('T')[0], // Convert to YYYY-MM-DD format
+			time: time,
+			availableSeats: parseInt(seats),
+			costPerSeat: parseFloat(costPerSeat),
+			totalCost: parseInt(seats) * parseFloat(costPerSeat),
+			perPassengerCost: parseFloat(costPerSeat),
+			distanceKm: parseFloat(distanceKm) || 10,
+			driverId: 'unknown',
+			passengers: [],
+			status: 'pending',
+			passengerPreference: passengerPreference || 'any',
+			createdAt: new Date().toISOString()
+		};
+
+		// Store ride
+		ridesStorage.set(rideId, ride);
+
+		console.log(`✅ Ride created successfully: ${rideId}`);
+
+		res.status(201).json({
+			success: true,
+			message: 'Ride posted successfully',
+			ride: ride
+		});
+
+	} catch (error) {
+		console.error('Post ride error:', error);
+		res.status(500).json({ error: 'Internal server error', details: error.message });
+	}
+});
+
 // Post ride endpoint
 app.post('/api/rides', (req, res) => {
 	try {
