@@ -96,23 +96,6 @@ app.get('/', (req, res) => {
 	});
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-	console.error('Error:', err);
-	res.status(500).json({ 
-		error: 'Internal Server Error',
-		message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
-	});
-});
-
-// 404 handler - use proper catch-all route
-app.use((req, res) => {
-	res.status(404).json({ error: 'Route not found' });
-});
-
-// Initialize database connection
-connectDB();
-
 // Add a simple test endpoint that doesn't require DB
 app.get('/test', (req, res) => {
 	res.json({ 
@@ -145,6 +128,23 @@ app.get('/diagnostic', (req, res) => {
 	};
 	
 	res.json(diagnostic);
+});
+
+// Initialize database connection
+connectDB();
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+	console.error('Error:', err);
+	res.status(500).json({ 
+		error: 'Internal Server Error',
+		message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+	});
+});
+
+// 404 handler - use proper catch-all route
+app.use((req, res) => {
+	res.status(404).json({ error: 'Route not found' });
 });
 
 
