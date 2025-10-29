@@ -50,31 +50,34 @@ async function connectDB() {
 	}
 }
 
-// Routes - with error handling
-try {
-	const authRoutes = require('./routes/authRoutes');
-	const rideRoutes = require('./routes/rideRoutes');
-	const chatRoutes = require('./routes/chat');
-	const ratingRoutes = require('./routes/ratingRoutes');
-	const statsRoutes = require('./routes/statsRoutes');
-	const dashboardRoutes = require('./routes/dashboardRoutes');
-	const userRoutes = require('./routes/userRoutes');
+// Routes - load each independently so one failure doesn't break all
+function safeMount(path, getRouter) {
+    try {
+        const router = getRouter();
+        app.use(path, router);
+        console.log(`Mounted routes at ${path}`);
+        return true;
+    } catch (error) {
+        console.error(`Failed to mount routes at ${path}:`, error.message);
+        return false;
+    }
+}
 
-	app.use('/api/auth', authRoutes);
-	app.use('/api', rideRoutes);
-	app.use('/api', chatRoutes);
-	app.use('/api', ratingRoutes);
-	app.use('/api', statsRoutes);
-	app.use('/api/dashboard', dashboardRoutes);
-	app.use('/api/users', userRoutes);
-	
-	console.log('All routes loaded successfully');
-} catch (error) {
-	console.error('Error loading routes:', error);
-	// Add a fallback route
-	app.use('/api', (req, res) => {
-		res.status(500).json({ error: 'Routes not loaded properly' });
-	});
+const mounted = [];
+mounted.push(safeMount('/api/auth', () => require('./routes/authRoutes')));
+mounted.push(safeMount('/api', () => require('./routes/rideRoutes')));
+mounted.push(safeMount('/api', () => require('./routes/ratingRoutes')));
+mounted.push(safeMount('/api', () => require('./routes/statsRoutes')));
+mounted.push(safeMount('/api/dashboard', () => require('./routes/dashboardRoutes')));
+mounted.push(safeMount('/api/users', () => require('./routes/userRoutes')));
+
+// Mount chat last; if it fails, other routes still work
+mounted.push(safeMount('/api', () => require('./routes/chat')));
+
+if (mounted.some(Boolean)) {
+    console.log('Routes mounted (some may have been skipped)');
+} else {
+    console.error('No routes mounted successfully');
 }
 
 // Health check
