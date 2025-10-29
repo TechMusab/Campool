@@ -72,7 +72,7 @@ export default function PostRideScreen() {
       const isoDate = new Date(date);
       isoDate.setHours(time.getHours(), time.getMinutes(), 0, 0);
       
-      const response = await fetch(`${API_BASE}/api/rides/create`, {
+      const response = await fetch(`${API_BASE}/api/rides`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
