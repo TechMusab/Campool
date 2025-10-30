@@ -11,6 +11,34 @@ const OTP_TTL_MS = 2 * 60 * 1000; // 2 minutes
 const OTP_MAX_REQUESTS_PER_HOUR = 5;
 const OTP_MAX_VERIFY_ATTEMPTS = 10;
 
+async function connectWithRetry(mongoUri, maxAttempts = 3) {
+	const mongoose = require('mongoose');
+	let attempt = 0;
+	let lastError;
+	while (attempt < maxAttempts) {
+		try {
+			await mongoose.connect(mongoUri, {
+				useNewUrlParser: true,
+				useUnifiedTopology: true,
+				serverSelectionTimeoutMS: 15000,
+				socketTimeoutMS: 45000,
+				maxPoolSize: 1,
+				serverSelectionRetryDelayMS: 3000,
+				heartbeatFrequencyMS: 10000,
+				bufferCommands: false,
+				bufferMaxEntries: 0,
+			});
+			return true;
+		} catch (err) {
+			lastError = err;
+			attempt++;
+			const delayMs = 500 * Math.pow(2, attempt - 1);
+			await new Promise(r => setTimeout(r, delayMs));
+		}
+	}
+	throw lastError;
+}
+
 function generateOtp() {
     const num = Math.floor(100000 + Math.random() * 900000);
     return String(num);
@@ -27,19 +55,9 @@ async function requestOtp(req, res) {
         console.log('Current MongoDB state:', mongoose.connection.readyState);
         
         if (mongoose.connection.readyState === 0) {
-            console.log('Connecting to MongoDB...');
+            console.log('Connecting to MongoDB (OTP)...');
             try {
-                await mongoose.connect(process.env.MONGO_URI, {
-                    useNewUrlParser: true,
-                    useUnifiedTopology: true,
-                    serverSelectionTimeoutMS: 15000,
-                    socketTimeoutMS: 45000,
-                    maxPoolSize: 1, // Important for serverless
-                    serverSelectionRetryDelayMS: 5000,
-                    heartbeatFrequencyMS: 10000,
-                    bufferCommands: false,
-                    bufferMaxEntries: 0,
-                });
+                await connectWithRetry(process.env.MONGO_URI, 3);
                 console.log('✅ MongoDB connected successfully');
             } catch (connectError) {
                 console.error('❌ MongoDB connection failed:', connectError);
