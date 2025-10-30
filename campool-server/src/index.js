@@ -25,29 +25,38 @@ app.use(express.urlencoded({ extended: true }));
 // Database connection
 const MONGO_URI = process.env.MONGO_URI;
 
-async function connectDB() {
-	try {
-		if (mongoose.connection.readyState === 0) {
-			console.log('Attempting to connect to MongoDB...');
-			await mongoose.connect(MONGO_URI, {
-				serverSelectionTimeoutMS: 10000, // 10 second timeout
-				socketTimeoutMS: 45000, // 45 second timeout
-				maxPoolSize: 1, // Important for serverless
-				heartbeatFrequencyMS: 10000,
-			});
-			console.log('✅ Connected to MongoDB successfully');
-		} else {
-			console.log('MongoDB already connected, state:', mongoose.connection.readyState);
-		}
-	} catch (error) {
-		console.error('❌ MongoDB connection error:', error);
-		console.error('Error details:', {
-			message: error.message,
-			code: error.code,
-			name: error.name
-		});
-		// Don't throw error in serverless - let the app continue
-	}
+async function connectDB(maxAttempts = 4) {
+    let attempt = 0;
+    let lastError;
+    while (attempt < maxAttempts && mongoose.connection.readyState === 0) {
+        try {
+            if (attempt > 0) {
+                const delayMs = 500 * Math.pow(2, attempt - 1);
+                await new Promise(r => setTimeout(r, delayMs));
+            }
+            console.log(`Attempting to connect to MongoDB (attempt ${attempt + 1}/${maxAttempts})...`);
+            await mongoose.connect(MONGO_URI, {
+                serverSelectionTimeoutMS: 15000,
+                socketTimeoutMS: 45000,
+                maxPoolSize: 1,
+                heartbeatFrequencyMS: 10000,
+            });
+            console.log('✅ Connected to MongoDB successfully');
+            return true;
+        } catch (error) {
+            lastError = error;
+            console.error('❌ MongoDB connection error:', error?.message || error);
+        }
+        attempt++;
+    }
+    if (mongoose.connection.readyState === 0 && lastError) {
+        console.error('❌ Failed to connect to MongoDB after retries:', {
+            message: lastError.message,
+            code: lastError.code,
+            name: lastError.name
+        });
+    }
+    return mongoose.connection.readyState === 1;
 }
 
 // Routes - load each independently so one failure doesn't break all
@@ -130,6 +139,14 @@ app.get('/diagnostic', (req, res) => {
 
 // Initialize database connection
 connectDB();
+
+// Ensure DB connection on auth requests (best-effort)
+app.use(['/api/auth', '/api/auth/*'], async (req, res, next) => {
+    if (mongoose.connection.readyState === 0) {
+        await connectDB(3);
+    }
+    next();
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
