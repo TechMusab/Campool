@@ -166,6 +166,15 @@ app.post('/api/auth/signup', async (req, res) => {
 	}
 });
 
+// Mount full auth routes to support OTP flow when using minimal server
+try {
+    const authRouter = require('./routes/authRoutes');
+    app.use('/api/auth', authRouter);
+    console.log('Mounted /api/auth routes for OTP and full auth flow');
+} catch (e) {
+    console.warn('Auth routes not mounted in minimal server:', e.message);
+}
+
 // Test endpoint
 app.get('/api/test', (req, res) => {
 	res.json({ 
