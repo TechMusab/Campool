@@ -123,17 +123,7 @@ async function verifyOtp(req, res) {
         if (mongoose.connection.readyState === 0) {
             console.log('Connecting to MongoDB for OTP verification...');
             try {
-                await mongoose.connect(process.env.MONGO_URI, {
-                    useNewUrlParser: true,
-                    useUnifiedTopology: true,
-                    serverSelectionTimeoutMS: 15000,
-                    socketTimeoutMS: 45000,
-                    maxPoolSize: 1,
-                    serverSelectionRetryDelayMS: 5000,
-                    heartbeatFrequencyMS: 10000,
-                    bufferCommands: false,
-                    bufferMaxEntries: 0,
-                });
+                await connectWithRetry(process.env.MONGO_URI, 3);
                 console.log('✅ MongoDB connected for verification');
             } catch (connectError) {
                 console.error('❌ MongoDB connection failed:', connectError);
@@ -195,18 +185,12 @@ console.log("Request headers:", JSON.stringify(req.headers, null, 2));
 		const mongoose = require('mongoose');
 		console.log('Current MongoDB state:', mongoose.connection.readyState);
 		
-		if (mongoose.connection.readyState === 0) {
-			console.log('Connecting to MongoDB for signup...');
-			try {
-				await mongoose.connect(process.env.MONGO_URI, {
-					useNewUrlParser: true,
-					useUnifiedTopology: true,
-					serverSelectionTimeoutMS: 15000,
-					socketTimeoutMS: 45000,
-					maxPoolSize: 1, // Important for serverless
-				});
-				console.log('✅ MongoDB connected for signup');
-			} catch (connectError) {
+        if (mongoose.connection.readyState === 0) {
+            console.log('Connecting to MongoDB for signup...');
+            try {
+                await connectWithRetry(process.env.MONGO_URI, 3);
+                console.log('✅ MongoDB connected for signup');
+            } catch (connectError) {
 				console.error('❌ MongoDB connection failed:', connectError);
 				return res.status(500).json({ error: 'Database connection failed' });
 			}
