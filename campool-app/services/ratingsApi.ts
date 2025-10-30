@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-l1un.vercel.app';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://campool-lm5p.vercel.app';
 
 export async function addRating(token: string, payload: { rideId: string; driverId: string; rating: number; review?: string }) {
   const res = await axios.post(`${API_BASE}/ratings/add`, payload, {
