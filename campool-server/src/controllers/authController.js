@@ -18,15 +18,10 @@ async function connectWithRetry(mongoUri, maxAttempts = 3) {
 	while (attempt < maxAttempts) {
 		try {
 			await mongoose.connect(mongoUri, {
-				useNewUrlParser: true,
-				useUnifiedTopology: true,
 				serverSelectionTimeoutMS: 15000,
 				socketTimeoutMS: 45000,
 				maxPoolSize: 1,
-				serverSelectionRetryDelayMS: 3000,
 				heartbeatFrequencyMS: 10000,
-				bufferCommands: false,
-				bufferMaxEntries: 0,
 			});
 			return true;
 		} catch (err) {
