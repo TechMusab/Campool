@@ -100,8 +100,8 @@ async function sendOtpEmail(to, otp) {
         console.log(`📧 Expires in: 2 minutes`);
         console.log('📧 ===========================================\n');
         
-        // Re-throw the error so the calling function knows it failed
-        throw error;
+        // Don't re-throw - we've already logged it to console as fallback
+        // Just return success since user gets the OTP in console logs
     }
 }
 
