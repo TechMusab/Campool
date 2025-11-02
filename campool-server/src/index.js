@@ -137,8 +137,11 @@ app.get('/diagnostic', (req, res) => {
 	res.json(diagnostic);
 });
 
-// Initialize database connection
-connectDB();
+// Initialize database connection (fire-and-forget for Vercel)
+// This starts the connection but doesn't block the app export
+connectDB().catch(err => {
+	console.error('Initial DB connection failed:', err);
+});
 
 // Ensure DB connection on auth requests (best-effort)
 app.use(['/api/auth', '/api/auth/*'], async (req, res, next) => {
