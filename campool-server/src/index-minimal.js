@@ -86,11 +86,13 @@ console.log(`📦 NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
 const mounted = [];
 console.log('🔄 Loading auth routes...');
 mounted.push(safeMount('/api/auth', () => require('./routes/authRoutes')));
+console.log('🔄 Loading ride routes...');
+mounted.push(safeMount('/api', () => require('./routes/rideRoutes')));
 
 if (mounted.some(Boolean)) {
-    console.log('✅ Auth routes mounted successfully');
+    console.log(`✅ ${mounted.filter(Boolean).length} route sets mounted successfully`);
 } else {
-    console.error('❌ Failed to mount auth routes');
+    console.error('❌ Failed to mount routes');
 }
 
 // Health check
@@ -101,7 +103,7 @@ app.get('/health', (req, res) => {
 // Root endpoint
 app.get('/', (req, res) => {
 	res.json({ 
-		message: 'Campool API Server (MINIMAL MODE - Auth Only)', 
+		message: 'Campool API Server (Minimal Mode)', 
 		status: 'running',
 		endpoints: {
 			auth: [
@@ -109,6 +111,11 @@ app.get('/', (req, res) => {
 				'POST /api/auth/verify-otp',
 				'POST /api/auth/signup',
 				'POST /api/auth/login'
+			],
+			rides: [
+				'GET /rides/search',
+				'POST /rides/create',
+				'GET /rides/:id'
 			]
 		},
 		timestamp: new Date().toISOString()
@@ -184,12 +191,18 @@ app.use((req, res) => {
 	res.status(404).json({ error: 'Route not found' });
 });
 
-console.log('✅ Minimal server configured with auth endpoints only');
+console.log('✅ Minimal server configured with auth and ride endpoints');
 console.log('📋 Available endpoints:');
+console.log('   Auth:');
 console.log('   - POST /api/auth/request-otp');
 console.log('   - POST /api/auth/verify-otp');
 console.log('   - POST /api/auth/signup');
 console.log('   - POST /api/auth/login');
+console.log('   Rides:');
+console.log('   - GET /rides/search');
+console.log('   - POST /rides/create');
+console.log('   - GET /rides/:id');
+console.log('   Diagnostics:');
 console.log('   - GET /health');
 console.log('   - GET /diagnostic');
 
