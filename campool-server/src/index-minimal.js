@@ -62,20 +62,29 @@ async function connectDB(maxAttempts = 4) {
 // Helper function
 function safeMount(path, getRouter) {
     try {
+        console.log(`🔧 Attempting to mount routes at ${path}...`);
         const router = getRouter();
         app.use(path, router);
         console.log(`✅ Mounted routes at ${path}`);
         return true;
     } catch (error) {
         console.error(`❌ Failed to mount routes at ${path}:`, error.message);
+        console.error(`Error details:`, {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
         return false;
     }
 }
 
 // MINIMAL VERSION: Only mount auth routes
 console.log('🚀 Starting minimal server with AUTH routes only...');
+console.log(`📦 Node version: ${process.version}`);
+console.log(`📦 NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
 
 const mounted = [];
+console.log('🔄 Loading auth routes...');
 mounted.push(safeMount('/api/auth', () => require('./routes/authRoutes')));
 
 if (mounted.some(Boolean)) {

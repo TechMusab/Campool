@@ -49,13 +49,15 @@ function hashOtp(otp) {
 }
 
 async function requestOtp(req, res) {
+    console.log('\n=== OTP REQUEST START ===');
+    console.log('Request body:', req.body);
     try {
         // Force MongoDB connection for serverless environment
         const mongoose = require('mongoose');
-        console.log('Current MongoDB state:', mongoose.connection.readyState);
+        console.log('📊 Current MongoDB state:', mongoose.connection.readyState);
         
         if (mongoose.connection.readyState === 0) {
-            console.log('Connecting to MongoDB (OTP)...');
+            console.log('🔌 Connecting to MongoDB (OTP)...');
             try {
                 await connectWithRetry(process.env.MONGO_URI, 3);
                 console.log('✅ MongoDB connected successfully');
@@ -70,48 +72,83 @@ async function requestOtp(req, res) {
             }
         }
 
+        console.log('🔍 Validating email field...');
         const missing = requireFields(req.body, ['email']);
-        if (missing) return res.status(400).json({ error: `Missing field: ${missing}` });
+        if (missing) {
+            console.error(`❌ Missing field: ${missing}`);
+            return res.status(400).json({ error: `Missing field: ${missing}` });
+        }
 
         const email = String(req.body.email).toLowerCase();
+        console.log(`📧 Checking email format: ${email}`);
         if (!isUniversityEmail(email)) {
+            console.error('❌ Invalid email domain');
             return res.status(400).json({ error: 'Email must be a valid student domain' });
         }
 
+        console.log('👤 Looking for existing user...');
         let user = await User.findOne({ email });
         if (!user) {
-            // Create pending user for OTP verification during signup
-            user = await User.create({
-                name: 'Pending',
-                email,
-                passwordHash: await bcrypt.hash(crypto.randomBytes(12).toString('hex'), SALT_ROUNDS),
-                studentId: `PENDING-${crypto.randomBytes(6).toString('hex')}`,
-                whatsappNumber: 'N/A',
-                status: 'pending'
-            });
+            console.log('➕ Creating new pending user...');
+            try {
+                user = await User.create({
+                    name: 'Pending',
+                    email,
+                    passwordHash: await bcrypt.hash(crypto.randomBytes(12).toString('hex'), SALT_ROUNDS),
+                    studentId: `PENDING-${crypto.randomBytes(6).toString('hex')}`,
+                    whatsappNumber: 'N/A',
+                    status: 'pending'
+                });
+                console.log('✅ Pending user created:', user._id);
+            } catch (createError) {
+                console.error('❌ Failed to create user:', createError);
+                console.error('Create error details:', {
+                    message: createError.message,
+                    code: createError.code,
+                    name: createError.name
+                });
+                throw createError;
+            }
+        } else {
+            console.log('✅ Found existing user:', user._id);
         }
 
+        console.log('⏱️ Checking rate limits...');
         const now = new Date();
         const windowStart = user.otpRequestWindowStart || new Date(now.getTime() - 61 * 60 * 1000);
         const withinWindow = now.getTime() - new Date(windowStart).getTime() < 60 * 60 * 1000;
         let requestCount = withinWindow ? (user.otpRequestCount || 0) : 0;
         if (requestCount >= OTP_MAX_REQUESTS_PER_HOUR) {
+            console.error('❌ Rate limit exceeded');
             return res.status(429).json({ error: 'Too many requests. Try again later.' });
         }
+        console.log('✅ Rate limit OK');
 
+        console.log('🔐 Generating OTP...');
         const otp = generateOtp();
+        console.log('📝 Generated OTP:', otp);
         user.otpHash = hashOtp(otp);
         user.otpExpiresAt = new Date(Date.now() + OTP_TTL_MS);
         user.otpAttemptCount = 0;
         user.otpRequestCount = requestCount + 1;
         user.otpRequestWindowStart = withinWindow ? windowStart : now;
+        
+        console.log('💾 Saving user with OTP hash...');
         await user.save();
+        console.log('✅ User saved');
 
+        console.log('📧 Sending OTP email...');
         await sendOtpEmail(email, otp);
+        console.log('✅ OTP email sent');
 
+        console.log('=== OTP REQUEST SUCCESS ===\n');
         return res.json({ success: true, expiresInMs: OTP_TTL_MS });
     } catch (error) {
-        console.error('requestOtp error', error);
+        console.error('=== OTP REQUEST ERROR ===');
+        console.error('Error type:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        console.error('=========================\n');
         return res.status(500).json({ error: 'Internal server error' });
     }
 }
