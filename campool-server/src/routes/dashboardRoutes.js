@@ -19,7 +19,7 @@ router.get('/dashboard', auth, async (req, res) => {
         const rides = await Ride.find({
             $or: [
                 { driverId: userId },
-                { passengers: userId }
+                { 'passengers.userId': userId }
             ]
         });
 
@@ -34,7 +34,7 @@ router.get('/dashboard', auth, async (req, res) => {
             if (ride.driverId.toString() === userId) {
                 // Driver earnings
                 totalEarnings += ride.costPerSeat * ride.passengers.length;
-            } else if (ride.passengers.includes(userId)) {
+            } else if (ride.passengers.some(p => p.userId && p.userId.toString() === userId)) {
                 // Passenger savings (compared to solo ride)
                 const soloCost = ride.costPerSeat * 4; // Assume 4 seats for solo ride
                 const sharedCost = ride.costPerSeat;
@@ -72,11 +72,11 @@ router.get('/recent', auth, async (req, res) => {
         const rides = await Ride.find({
             $or: [
                 { driverId: userId },
-                { passengers: userId }
+                { 'passengers.userId': userId }
             ]
         })
         .populate('driverId', 'name avgRating')
-        .populate('passengers', 'name')
+        .populate('passengers.userId', 'name')
         .sort({ createdAt: -1 })
         .limit(limit);
 
@@ -143,7 +143,7 @@ router.post('/:rideId/auto-join', auth, async (req, res) => {
         }
 
         // Check if user is already in the ride
-        if (ride.passengers.includes(userId)) {
+        if (ride.passengers.some(p => p.userId && p.userId.toString() === userId)) {
             return res.json({ success: true, message: 'Already joined' });
         }
 
@@ -153,7 +153,7 @@ router.post('/:rideId/auto-join', auth, async (req, res) => {
         }
 
         // Add user to passengers
-        ride.passengers.push(userId);
+        ride.passengers.push({ userId, joinedAt: new Date(), status: 'accepted' });
         ride.availableSeats -= 1;
         
         await ride.save();

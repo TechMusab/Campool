@@ -177,64 +177,41 @@ async function verifyOtp(req, res) {
 }
 
 async function signup(req, res) {
-console.log("=== SIGNUP REQUEST START ===");
-console.log("Request body:", JSON.stringify(req.body, null, 2));
-console.log("Request headers:", JSON.stringify(req.headers, null, 2));
 	try {
 		// Force MongoDB connection for serverless environment
 		const mongoose = require('mongoose');
-		console.log('Current MongoDB state:', mongoose.connection.readyState);
-		
-        if (mongoose.connection.readyState === 0) {
-            console.log('Connecting to MongoDB for signup...');
-            try {
-                await connectWithRetry(process.env.MONGO_URI, 3);
-                console.log('✅ MongoDB connected for signup');
-            } catch (connectError) {
-				console.error('❌ MongoDB connection failed:', connectError);
+		if (mongoose.connection.readyState === 0) {
+			try {
+				await connectWithRetry(process.env.MONGO_URI, 3);
+			} catch (connectError) {
+				console.error('MongoDB connection failed:', connectError);
 				return res.status(500).json({ error: 'Database connection failed' });
 			}
 		}
 
-console.log("Step 1: Validating required fields...");
 		const missing = requireFields(req.body, ['name', 'email', 'password', 'studentId', 'whatsappNumber', 'otp']);
 		if (missing) {
-console.log("? Missing field:", missing);
 			return res.status(400).json({ error: `Missing field: ${missing}` });
 		}
 
 		const { name, email, password, studentId, whatsappNumber, otp } = req.body;
-console.log("Extracted data:", { name, email, studentId, passwordLength: password?.length });
 		if (!isUniversityEmail(email)) {
-console.log("? Invalid university email:", email);
 			return res.status(400).json({ error: 'Email must be a valid university address' });
 		}
 
 		// Check if user already exists
 		const existingEmail = await User.findOne({ email: email.toLowerCase() });
-console.log("Existing email check result:", existingEmail ? "Found existing user" : "No existing user");
 		if (existingEmail && existingEmail.status !== 'pending') {
 			return res.status(409).json({ error: 'Email already registered' });
 		}
 
 		const existingStudent = await User.findOne({ studentId });
-console.log("Existing student ID check result:", existingStudent ? "Found existing student" : "No existing student");
 		if (existingStudent && existingStudent.status !== 'pending') {
 			return res.status(409).json({ error: 'Student ID already registered' });
 		}
 
 		// Verify OTP
 		const user = existingEmail || await User.findOne({ email: email.toLowerCase() });
-		console.log("User found for OTP verification:", user ? "Yes" : "No");
-		if (user) {
-			console.log("User OTP status:", {
-				hasOtpHash: !!user.otpHash,
-				hasOtpExpiresAt: !!user.otpExpiresAt,
-				otpExpiresAt: user.otpExpiresAt,
-				currentTime: new Date()
-			});
-		}
-		
 		if (!user || !user.otpHash || !user.otpExpiresAt) {
 			return res.status(400).json({ error: 'OTP not requested or expired. Please request OTP first.' });
 		}
@@ -245,33 +222,20 @@ console.log("Existing student ID check result:", existingStudent ? "Found existi
 		}
 
 		const providedOtpHash = hashOtp(otp);
-		console.log("OTP verification:", {
-			providedOtp: otp,
-			providedHash: providedOtpHash,
-			storedHash: user.otpHash,
-			hashesMatch: providedOtpHash === user.otpHash
-		});
-		
 		if (providedOtpHash !== user.otpHash) {
-			console.log("❌ OTP verification failed - hashes don't match");
 			// Increment verification attempts
 			await User.findByIdAndUpdate(user._id, { 
 				$inc: { otpVerifyAttempts: 1 } 
 			});
 			return res.status(400).json({ error: 'Invalid OTP' });
 		}
-		
-		console.log("✅ OTP verification successful");
 
 		// OTP is valid, complete the signup
-		console.log("Step 2: Creating password hash...");
 		const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-		console.log("✅ Password hash created");
 		
 		if (existingEmail) {
-			console.log("Step 3: Updating existing pending user...");
 			// Update existing pending user
-			const updateResult = await User.findByIdAndUpdate(user._id, {
+			await User.findByIdAndUpdate(user._id, {
 				name,
 				passwordHash,
 				studentId,
@@ -285,11 +249,9 @@ console.log("Existing student ID check result:", existingStudent ? "Found existi
 					otpRequestWindowStart: 1
 				}
 			});
-			console.log("✅ User updated successfully");
 		} else {
-			console.log("Step 3: Creating new verified user...");
 			// Create new verified user
-			const newUser = await User.create({ 
+			await User.create({ 
 				name, 
 				email: email.toLowerCase(), 
 				passwordHash, 
@@ -297,21 +259,10 @@ console.log("Existing student ID check result:", existingStudent ? "Found existi
 				whatsappNumber,
 				status: 'verified'
 			});
-			console.log("✅ New user created successfully");
 		}
 
 		const finalUser = await User.findOne({ email: email.toLowerCase() });
-console.log("? User created/updated successfully:", {
-id: finalUser._id,
-name: finalUser.name,
-email: finalUser.email,
-studentId: finalUser.studentId,
-status: finalUser.status,
-createdAt: finalUser.createdAt
-});
-
-		console.log("=== SIGNUP REQUEST SUCCESS ===");
-return res.status(201).json({
+		return res.status(201).json({
 			id: finalUser._id,
 			name: finalUser.name,
 			email: finalUser.email,
@@ -320,11 +271,6 @@ return res.status(201).json({
 			createdAt: finalUser.createdAt,
 		});
 	} catch (error) {
-		console.error('=== SIGNUP ERROR ===');
-		console.error('Error type:', error.name);
-		console.error('Error message:', error.message);
-		console.error('Error stack:', error.stack);
-		
 		// Handle specific MongoDB errors
 		if (error.name === 'ValidationError') {
 			const errors = Object.values(error.errors).map(err => err.message);
@@ -347,10 +293,8 @@ return res.status(201).json({
 
 async function login(req, res) {
 	try {
-console.log("Step 1: Validating required fields...");
 		const missing = requireFields(req.body, ['email', 'password']);
 		if (missing) {
-console.log("? Missing field:", missing);
 			return res.status(400).json({ error: `Missing field: ${missing}` });
 		}
 
@@ -589,4 +533,57 @@ async function createTestUsers(req, res) {
 	}
 }
 
-module.exports = { signup, login, requestOtp, verifyOtp, createTestUser, createSimpleTestUser, createTestUsers };
+// Create N test users (default 200) without OTP, idempotent by email
+async function createBulkUsers(req, res) {
+    try {
+        const mongoose = require('mongoose');
+        if (mongoose.connection.readyState === 0) {
+            try {
+                await mongoose.connect(process.env.MONGO_URI, {
+                    useNewUrlParser: true,
+                    useUnifiedTopology: true,
+                    serverSelectionTimeoutMS: 15000,
+                    socketTimeoutMS: 45000,
+                    maxPoolSize: 1,
+                });
+            } catch (err) {
+                return res.status(500).json({ error: 'Database connection failed' });
+            }
+        }
+
+        const total = Math.max(1, Math.min(Number(req.query.count) || 200, 1000));
+        const domain = String(req.query.domain || 'university.edu');
+
+        const created = [];
+        const passwordHash = await bcrypt.hash('TestUser@123', SALT_ROUNDS);
+
+        for (let i = 1; i <= total; i++) {
+            const idx = String(i).padStart(3, '0');
+            const email = `user${idx}@${domain}`.toLowerCase();
+
+            const exists = await User.findOne({ email });
+            if (exists) {
+                created.push({ message: 'exists', email, id: exists._id });
+                continue;
+            }
+
+            const user = await User.create({
+                name: `User ${idx}`,
+                email,
+                passwordHash,
+                studentId: `STU${idx}`,
+                whatsappNumber: `+1234567${idx}`,
+                status: 'verified',
+                isVerified: true
+            });
+            created.push({ message: 'created', email, id: user._id });
+        }
+
+        return res.status(201).json({ message: 'Bulk users processed', count: created.length, details: created });
+    } catch (error) {
+        console.error('createBulkUsers error', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+module.exports = { signup, login, requestOtp, verifyOtp, createTestUser, createSimpleTestUser, createTestUsers, createBulkUsers };

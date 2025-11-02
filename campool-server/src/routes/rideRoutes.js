@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const auth = require('../middleware/auth');
 const { createRide, searchRides, getRideById, testRideCreation, getRideMessages, updateRideStatus, joinRide, respondToJoinRequest, getRideStatus } = require('../controllers/rideController');
+const Ride = require('../models/Ride');
 
 const router = Router();
 
