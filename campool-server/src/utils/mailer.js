@@ -70,27 +70,28 @@ async function sendOtpEmail(to, otp) {
     }
 
     try {
-        // Add timeout to prevent hanging
+        // Skip verification to save time - just send directly
+        // Add aggressive timeout to prevent hanging
         const sendEmailWithTimeout = Promise.race([
             (async () => {
-                console.log('🔍 Verifying SMTP connection...');
-                await getTransporter().verify();
-                console.log('✅ SMTP connection verified successfully');
-                
-                console.log('📤 Sending email...');
+                // Skip verify() to save time - just send directly
+                console.log('📤 Sending email directly (skipping verification)...');
                 const info = await getTransporter().sendMail({
                     from: FROM_EMAIL,
                     to,
                     subject: 'Your Campool verification code',
                     html,
+                    // Add connection timeout
+                    connectionTimeout: 5000,
+                    greetingTimeout: 5000,
+                    socketTimeout: 5000,
                 });
                 
                 console.log('✅ OTP email sent successfully!');
                 console.log(`📧 Message ID: ${info.messageId}`);
-                console.log(`📧 Response: ${info.response}`);
             })(),
             new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('SMTP operation timed out after 10 seconds')), 10000)
+                setTimeout(() => reject(new Error('SMTP operation timed out after 8 seconds')), 8000)
             )
         ]);
         
@@ -99,12 +100,9 @@ async function sendOtpEmail(to, otp) {
     } catch (error) {
         console.error('❌ Failed to send OTP email:');
         console.error(`   Error: ${error.message}`);
-        console.error(`   Code: ${error.code}`);
-        if (error.command) {
-            console.error(`   Command: ${error.command}`);
-        }
+        console.error(`   Code: ${error.code || 'N/A'}`);
         
-        // Fallback to console logging in case of SMTP errors
+        // Fallback to console logging - this is critical for development
         console.log('\n📧 ===== OTP EMAIL (FALLBACK MODE) =====');
         console.log(`📧 To: ${to}`);
         console.log(`📧 Subject: Your Campool verification code`);
@@ -112,8 +110,8 @@ async function sendOtpEmail(to, otp) {
         console.log(`📧 Expires in: 2 minutes`);
         console.log('📧 ===========================================\n');
         
-        // Don't re-throw - we've already logged it to console as fallback
-        // Just return success since user gets the OTP in console logs
+        // Don't re-throw - email failure should not affect the API response
+        // The OTP is already saved and valid
     }
 }
 

@@ -44,8 +44,18 @@ function hashOtp(otp) {
 }
 
 async function requestOtp(req, res) {
+    const startTime = Date.now();
     console.log('\n=== OTP REQUEST START ===');
     console.log('Request body:', req.body);
+    
+    // Set response timeout to prevent hanging
+    const responseTimeout = setTimeout(() => {
+        if (!res.headersSent) {
+            console.error('⚠️  Response timeout - sending error response');
+            res.status(500).json({ error: 'Request timeout. Please try again.' });
+        }
+    }, 25000); // 25 second timeout
+    
     try {
         // Force MongoDB connection for serverless environment
         const mongoose = require('mongoose');
@@ -57,98 +67,182 @@ async function requestOtp(req, res) {
                 await connectWithRetry(process.env.MONGO_URI, 3);
                 console.log('✅ MongoDB connected successfully');
             } catch (connectError) {
+                clearTimeout(responseTimeout);
                 console.error('❌ MongoDB connection failed:', connectError);
-                console.error('Connection error details:', {
-                    message: connectError.message,
-                    code: connectError.code,
-                    name: connectError.name
+                return res.status(500).json({ 
+                    success: false,
+                    error: 'Database connection failed. Please try again.' 
                 });
-                return res.status(500).json({ error: 'Database connection failed' });
             }
         }
 
-        console.log('🔍 Validating email field...');
-        const missing = requireFields(req.body, ['email']);
-        if (missing) {
-            console.error(`❌ Missing field: ${missing}`);
-            return res.status(400).json({ error: `Missing field: ${missing}` });
+        // Quick validation first
+        if (!req.body || !req.body.email) {
+            clearTimeout(responseTimeout);
+            return res.status(400).json({ 
+                success: false,
+                error: 'Email is required' 
+            });
         }
 
-        const email = String(req.body.email).toLowerCase();
-        console.log(`📧 Checking email format: ${email}`);
+        const email = String(req.body.email).toLowerCase().trim();
+        console.log(`📧 Processing email: ${email}`);
+        
+        if (!email || email.length < 5) {
+            clearTimeout(responseTimeout);
+            return res.status(400).json({ 
+                success: false,
+                error: 'Invalid email address' 
+            });
+        }
+
+        // Validate email format
         if (!isUniversityEmail(email)) {
-            console.error('❌ Invalid email domain');
-            return res.status(400).json({ error: 'Email must be a valid student domain' });
+            clearTimeout(responseTimeout);
+            return res.status(400).json({ 
+                success: false,
+                error: 'Email must be a valid student domain' 
+            });
         }
 
-        console.log('👤 Looking for existing user...');
-        let user = await User.findOne({ email });
+        // Find or create user with timeout
+        let user;
+        try {
+            user = await Promise.race([
+                User.findOne({ email }),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Database query timeout')), 10000)
+                )
+            ]);
+        } catch (dbError) {
+            clearTimeout(responseTimeout);
+            console.error('❌ Database query failed:', dbError);
+            return res.status(500).json({ 
+                success: false,
+                error: 'Database error. Please try again.' 
+            });
+        }
+
         if (!user) {
             console.log('➕ Creating new pending user...');
             try {
-                user = await User.create({
-                    name: 'Pending',
-                    email,
-                    passwordHash: await bcrypt.hash(crypto.randomBytes(12).toString('hex'), SALT_ROUNDS),
-                    studentId: `PENDING-${crypto.randomBytes(6).toString('hex')}`,
-                    whatsappNumber: 'N/A',
-                    status: 'pending'
-                });
+                user = await Promise.race([
+                    User.create({
+                        name: 'Pending',
+                        email,
+                        passwordHash: await bcrypt.hash(crypto.randomBytes(12).toString('hex'), SALT_ROUNDS),
+                        studentId: `PENDING-${crypto.randomBytes(6).toString('hex')}`,
+                        whatsappNumber: 'N/A',
+                        status: 'pending'
+                    }),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('User creation timeout')), 10000)
+                    )
+                ]);
                 console.log('✅ Pending user created:', user._id);
             } catch (createError) {
+                clearTimeout(responseTimeout);
                 console.error('❌ Failed to create user:', createError);
-                console.error('Create error details:', {
-                    message: createError.message,
-                    code: createError.code,
-                    name: createError.name
-                });
-                throw createError;
+                // Check if it's a duplicate key error
+                if (createError.code === 11000) {
+                    // User was created by another request, fetch it
+                    user = await User.findOne({ email });
+                    if (!user) {
+                        return res.status(500).json({ 
+                            success: false,
+                            error: 'Account creation failed. Please try again.' 
+                        });
+                    }
+                } else {
+                    return res.status(500).json({ 
+                        success: false,
+                        error: 'Account creation failed. Please try again.' 
+                    });
+                }
             }
         } else {
             console.log('✅ Found existing user:', user._id);
         }
 
-        console.log('⏱️ Checking rate limits...');
+        // Check rate limits
         const now = new Date();
         const windowStart = user.otpRequestWindowStart || new Date(now.getTime() - 61 * 60 * 1000);
         const withinWindow = now.getTime() - new Date(windowStart).getTime() < 60 * 60 * 1000;
         let requestCount = withinWindow ? (user.otpRequestCount || 0) : 0;
+        
         if (requestCount >= OTP_MAX_REQUESTS_PER_HOUR) {
-            console.error('❌ Rate limit exceeded');
-            return res.status(429).json({ error: 'Too many requests. Try again later.' });
+            clearTimeout(responseTimeout);
+            return res.status(429).json({ 
+                success: false,
+                error: 'Too many requests. Please wait before requesting another code.' 
+            });
         }
-        console.log('✅ Rate limit OK');
 
-        console.log('🔐 Generating OTP...');
+        // Generate OTP
         const otp = generateOtp();
         console.log('📝 Generated OTP:', otp);
+        
+        // Update user with OTP
         user.otpHash = hashOtp(otp);
         user.otpExpiresAt = new Date(Date.now() + OTP_TTL_MS);
         user.otpAttemptCount = 0;
         user.otpRequestCount = requestCount + 1;
         user.otpRequestWindowStart = withinWindow ? windowStart : now;
         
-        console.log('💾 Saving user with OTP hash...');
-        await user.save();
-        console.log('✅ User saved');
+        // Save user with timeout
+        try {
+            await Promise.race([
+                user.save(),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Save timeout')), 10000)
+                )
+            ]);
+            console.log('✅ User saved');
+        } catch (saveError) {
+            clearTimeout(responseTimeout);
+            console.error('❌ Failed to save user:', saveError);
+            return res.status(500).json({ 
+                success: false,
+                error: 'Failed to save OTP. Please try again.' 
+            });
+        }
 
-        console.log('📧 Sending OTP email...');
-        // Send email asynchronously - don't block the response
+        // Send response IMMEDIATELY before email
+        clearTimeout(responseTimeout);
+        const responseTime = Date.now() - startTime;
+        console.log(`✅ Response sent in ${responseTime}ms`);
+        
+        // Send success response immediately
+        res.json({ 
+            success: true, 
+            expiresInMs: OTP_TTL_MS,
+            message: 'OTP sent successfully'
+        });
+
+        // Send email asynchronously AFTER response is sent
+        console.log('📧 Sending OTP email (async)...');
         sendOtpEmail(email, otp).catch(err => {
             console.error('⚠️  Email sending failed (non-blocking):', err.message);
-            // Email failure is logged but doesn't prevent OTP from being valid
+            // Email failure doesn't affect the response - OTP is already saved
         });
-        console.log('✅ OTP email request initiated');
 
         console.log('=== OTP REQUEST SUCCESS ===\n');
-        return res.json({ success: true, expiresInMs: OTP_TTL_MS });
+        
     } catch (error) {
+        clearTimeout(responseTimeout);
         console.error('=== OTP REQUEST ERROR ===');
         console.error('Error type:', error.name);
         console.error('Error message:', error.message);
         console.error('Error stack:', error.stack);
         console.error('=========================\n');
-        return res.status(500).json({ error: 'Internal server error' });
+        
+        // Ensure we send a response if not already sent
+        if (!res.headersSent) {
+            return res.status(500).json({ 
+                success: false,
+                error: 'Internal server error. Please try again.' 
+            });
+        }
     }
 }
 
