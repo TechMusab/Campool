@@ -32,10 +32,18 @@ export default function EmailVerificationScreen() {
       const response = await requestOtp(email.trim());
       
       if (response?.success) {
-        router.push({
-          pathname: '/(auth)/otp-verification',
-          params: { email: email.trim() }
-        });
+        // Use setTimeout to ensure state updates complete before navigation
+        setTimeout(() => {
+          try {
+            router.push({
+              pathname: '/(auth)/otp-verification',
+              params: { email: email.trim() }
+            });
+          } catch (navError: any) {
+            console.error('Navigation error:', navError);
+            setError('Failed to navigate. Please try again.');
+          }
+        }, 100);
       } else {
         throw new Error('Unexpected response from server');
       }

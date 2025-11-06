@@ -74,7 +74,15 @@ export default function SignupScreen() {
       if (response.data?.success) {
         setOtpSent(true);
         setOtpTimer(120); // 2 minutes in seconds
-        Alert.alert('OTP Sent', 'Check your email for the verification code. It expires in 2 minutes.');
+        // Use setTimeout to ensure state updates before showing alert
+        setTimeout(() => {
+          try {
+            Alert.alert('OTP Sent', 'Check your email for the verification code. It expires in 2 minutes.');
+          } catch (alertError) {
+            console.error('Alert error:', alertError);
+            // If alert fails, at least the OTP is sent
+          }
+        }, 50);
       } else {
         throw new Error('Unexpected response from server');
       }

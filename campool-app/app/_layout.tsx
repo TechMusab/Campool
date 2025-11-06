@@ -69,16 +69,54 @@ export default function RootLayout() {
 
   // Global error handler
   useEffect(() => {
-    const handleError = (error: Error) => {
-      console.log('Global error caught:', error);
-      // Don't crash the app for keep awake errors
-      if (error.message && error.message.includes('keep awake')) {
-        console.log('Keep awake error ignored');
+    // Handle unhandled promise rejections (React Native)
+    const rejectionHandler = (id: string, rejection: any) => {
+      console.error('Unhandled promise rejection:', id, rejection);
+      // Don't let unhandled rejections crash the app
+    };
+
+    // Handle uncaught errors (React Native)
+    const errorHandler = (error: Error, isFatal: boolean) => {
+      console.error('Uncaught error:', error, 'Fatal:', isFatal);
+      // Don't crash for non-fatal errors
+      if (!isFatal) {
         return;
       }
     };
 
-    // Add global error handler
+    // Add React Native error handlers
+    if (typeof ErrorUtils !== 'undefined') {
+      const originalHandler = ErrorUtils.getGlobalHandler();
+      ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
+        // Don't crash for keep awake errors
+        if (error.message && error.message.includes('keep awake')) {
+          console.log('Keep awake error ignored');
+          return;
+        }
+        errorHandler(error, isFatal || false);
+        // Still call original handler for fatal errors
+        if (isFatal && originalHandler) {
+          originalHandler(error, isFatal);
+        }
+      });
+    }
+
+    // Add global error handlers for web
+    if (typeof window !== 'undefined') {
+      const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+        console.error('Unhandled promise rejection:', event.reason);
+        event.preventDefault(); // Prevent default crash behavior
+      };
+
+      const handleUncaughtError = (event: ErrorEvent) => {
+        console.error('Uncaught error:', event.error);
+      };
+
+      window.addEventListener('error', handleUncaughtError);
+      window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    }
+
+    // Add global error handler for console
     const originalConsoleError = console.error;
     console.error = (...args: any[]) => {
       if (args[0] && args[0].message && args[0].message.includes('keep awake')) {
