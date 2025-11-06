@@ -7,12 +7,21 @@ export async function requestOtp(email: string) {
   console.log('🔍 Email:', email);
   
   try {
-    const res = await axios.post(`${API_BASE}/api/auth/request-otp`, { email });
+    const res = await axios.post(`${API_BASE}/api/auth/request-otp`, { email }, {
+      timeout: 30000, // 30 second timeout
+    });
     console.log('✅ OTP request successful:', res.data);
     return res.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ OTP request failed:', error);
-    console.error('❌ Error details:', error.response?.data);
+    if (error.response) {
+      console.error('❌ Response status:', error.response.status);
+      console.error('❌ Response data:', error.response.data);
+    } else if (error.request) {
+      console.error('❌ No response received:', error.request);
+    } else {
+      console.error('❌ Error setting up request:', error.message);
+    }
     throw error;
   }
 }

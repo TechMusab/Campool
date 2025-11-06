@@ -133,8 +133,12 @@ async function requestOtp(req, res) {
         console.log('✅ User saved');
 
         console.log('📧 Sending OTP email...');
-        await sendOtpEmail(email, otp);
-        console.log('✅ OTP email sent');
+        // Send email asynchronously - don't block the response
+        sendOtpEmail(email, otp).catch(err => {
+            console.error('⚠️  Email sending failed (non-blocking):', err.message);
+            // Email failure is logged but doesn't prevent OTP from being valid
+        });
+        console.log('✅ OTP email request initiated');
 
         console.log('=== OTP REQUEST SUCCESS ===\n');
         return res.json({ success: true, expiresInMs: OTP_TTL_MS });

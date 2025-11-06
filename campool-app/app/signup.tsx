@@ -65,12 +65,35 @@ export default function SignupScreen() {
     
     try {
       setOtpLoading(true);
-      await axios.post(`${API_BASE}/api/auth/request-otp`, { email });
-      setOtpSent(true);
-      setOtpTimer(120); // 2 minutes in seconds
-      Alert.alert('OTP Sent', 'Check your email for the verification code. It expires in 2 minutes.');
+      setErrors({ ...errors, otp: '' }); // Clear previous OTP errors
+      
+      const response = await axios.post(`${API_BASE}/api/auth/request-otp`, { email }, {
+        timeout: 30000, // 30 second timeout
+      });
+      
+      if (response.data?.success) {
+        setOtpSent(true);
+        setOtpTimer(120); // 2 minutes in seconds
+        Alert.alert('OTP Sent', 'Check your email for the verification code. It expires in 2 minutes.');
+      } else {
+        throw new Error('Unexpected response from server');
+      }
     } catch (e: any) {
-      const msg = e?.response?.data?.error || 'Failed to send OTP';
+      console.error('OTP request error:', e);
+      let msg = 'Failed to send OTP';
+      
+      if (e.response) {
+        // Server responded with error
+        msg = e.response.data?.error || `Server error: ${e.response.status}`;
+      } else if (e.request) {
+        // Request was made but no response received
+        msg = 'Network error. Please check your connection and try again.';
+      } else if (e.message) {
+        // Error in request setup
+        msg = e.message;
+      }
+      
+      setErrors({ ...errors, otp: msg });
       Alert.alert('Error', msg);
     } finally {
       setOtpLoading(false);

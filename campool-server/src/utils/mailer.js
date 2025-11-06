@@ -66,31 +66,43 @@ async function sendOtpEmail(to, otp) {
         console.log(`📧 OTP Code: ${otp}`);
         console.log(`📧 Expires in: 2 minutes`);
         console.log('📧 ===========================================\n');
-        return;
+        return Promise.resolve();
     }
 
     try {
-        console.log('🔍 Verifying SMTP connection...');
-        await getTransporter().verify();
-        console.log('✅ SMTP connection verified successfully');
+        // Add timeout to prevent hanging
+        const sendEmailWithTimeout = Promise.race([
+            (async () => {
+                console.log('🔍 Verifying SMTP connection...');
+                await getTransporter().verify();
+                console.log('✅ SMTP connection verified successfully');
+                
+                console.log('📤 Sending email...');
+                const info = await getTransporter().sendMail({
+                    from: FROM_EMAIL,
+                    to,
+                    subject: 'Your Campool verification code',
+                    html,
+                });
+                
+                console.log('✅ OTP email sent successfully!');
+                console.log(`📧 Message ID: ${info.messageId}`);
+                console.log(`📧 Response: ${info.response}`);
+            })(),
+            new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('SMTP operation timed out after 10 seconds')), 10000)
+            )
+        ]);
         
-        console.log('📤 Sending email...');
-        const info = await getTransporter().sendMail({
-            from: FROM_EMAIL,
-            to,
-            subject: 'Your Campool verification code',
-            html,
-        });
-        
-        console.log('✅ OTP email sent successfully!');
-        console.log(`📧 Message ID: ${info.messageId}`);
-        console.log(`📧 Response: ${info.response}`);
+        await sendEmailWithTimeout;
         
     } catch (error) {
         console.error('❌ Failed to send OTP email:');
         console.error(`   Error: ${error.message}`);
         console.error(`   Code: ${error.code}`);
-        console.error(`   Command: ${error.command}`);
+        if (error.command) {
+            console.error(`   Command: ${error.command}`);
+        }
         
         // Fallback to console logging in case of SMTP errors
         console.log('\n📧 ===== OTP EMAIL (FALLBACK MODE) =====');

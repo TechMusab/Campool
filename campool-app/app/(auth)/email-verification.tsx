@@ -29,13 +29,31 @@ export default function EmailVerificationScreen() {
     setError('');
 
     try {
-      await requestOtp(email.trim());
-      router.push({
-        pathname: '/(auth)/otp-verification',
-        params: { email: email.trim() }
-      });
+      const response = await requestOtp(email.trim());
+      
+      if (response?.success) {
+        router.push({
+          pathname: '/(auth)/otp-verification',
+          params: { email: email.trim() }
+        });
+      } else {
+        throw new Error('Unexpected response from server');
+      }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to send verification code';
+      console.error('OTP request error:', err);
+      let errorMessage = 'Failed to send verification code';
+      
+      if (err.response) {
+        // Server responded with error
+        errorMessage = err.response.data?.error || `Server error: ${err.response.status}`;
+      } else if (err.request) {
+        // Request was made but no response received
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (err.message) {
+        // Error in request setup
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
       Alert.alert('Error', errorMessage);
     } finally {
