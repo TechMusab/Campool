@@ -97,6 +97,27 @@ async function createRide(req, res) {
 
 async function searchRides(req, res) {
 	try {
+		console.log('searchRides called with query:', req.query);
+		
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for ride search...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for ride search');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
 		const { startPoint = '', destination = '', datetime, page = 1, limit = 10 } = req.query || {};
 		const pageNum = Math.max(1, Number(page));
 		const limitNum = Math.min(50, Math.max(1, Number(limit)));
@@ -113,8 +134,13 @@ async function searchRides(req, res) {
 				query.date = { $gte: after };
 			}
 		} else {
-			query.date = { $gte: new Date() };
+			// Only show future rides - compare date at start of day to avoid timezone issues
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+			query.date = { $gte: today };
 		}
+
+		console.log('Search query:', JSON.stringify(query, null, 2));
 
 		const rides = await Ride.find(query)
 			.sort({ date: 1 })
@@ -122,6 +148,8 @@ async function searchRides(req, res) {
 			.limit(limitNum)
 			.populate({ path: 'driverId', select: 'name avgRating whatsappNumber' })
 			.lean();
+
+		console.log('Found rides:', rides.length);
 
 		const items = rides.map((r) => {
 			const totalCost = (r.costPerSeat || 0) * (r.availableSeats || 0);
@@ -131,6 +159,7 @@ async function searchRides(req, res) {
 		});
 
 		const total = await Ride.countDocuments(query);
+		console.log('Total rides matching query:', total);
 		return res.json({ items, page: pageNum, limit: limitNum, total });
 	} catch (err) {
 		console.error('searchRides error', err);
@@ -140,6 +169,27 @@ async function searchRides(req, res) {
 
 async function getRideById(req, res) {
 	try {
+		console.log('getRideById called for ride:', req.params.id);
+		
+		// Force MongoDB connection for serverless environment
+		const mongoose = require('mongoose');
+		if (mongoose.connection.readyState === 0) {
+			console.log('Connecting to MongoDB for getRideById...');
+			try {
+				await mongoose.connect(process.env.MONGO_URI, {
+					useNewUrlParser: true,
+					useUnifiedTopology: true,
+					serverSelectionTimeoutMS: 15000,
+					socketTimeoutMS: 45000,
+					maxPoolSize: 1,
+				});
+				console.log('✅ MongoDB connected for getRideById');
+			} catch (connectError) {
+				console.error('❌ MongoDB connection failed:', connectError);
+				return res.status(500).json({ error: 'Database connection failed' });
+			}
+		}
+
 		const { id } = req.params;
 		const ride = await Ride.findById(id).populate({ path: 'driverId', select: 'name avgRating whatsappNumber' }).lean();
 		if (!ride) return res.status(404).json({ error: 'Ride not found' });

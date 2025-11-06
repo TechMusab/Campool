@@ -116,6 +116,10 @@ app.get('/', (req, res) => {
 				'GET /rides/search',
 				'POST /rides/create',
 				'GET /rides/:id'
+			],
+			legal: [
+				'GET /privacy',
+				'GET /terms'
 			]
 		},
 		timestamp: new Date().toISOString()
@@ -128,6 +132,93 @@ app.get('/test', (req, res) => {
 		message: 'Server is running', 
 		timestamp: new Date().toISOString(),
 		env: process.env.NODE_ENV || 'development'
+	});
+});
+
+// Privacy Policy endpoint
+app.get('/privacy', (req, res) => {
+	res.json({
+		title: 'Privacy Policy',
+		lastUpdated: new Date().toISOString(),
+		content: `
+Campool Privacy Policy
+
+Last Updated: ${new Date().toLocaleDateString()}
+
+1. Information We Collect
+We collect information you provide directly, including:
+- Name, email address, student ID
+- WhatsApp number for ride coordination
+- Ride details (start point, destination, date, time)
+- Profile information
+
+2. How We Use Your Information
+- To provide and improve our ride-sharing service
+- To facilitate communication between drivers and passengers
+- To process payments and transactions
+- To send you notifications about rides
+
+3. Data Sharing
+- We share ride information between matched drivers and passengers
+- WhatsApp numbers are shared only with participants in the same ride
+- We do not sell your personal information
+
+4. Data Security
+We implement security measures to protect your personal information.
+
+5. Your Rights
+You can access, update, or delete your account information at any time.
+
+6. Contact Us
+For questions about this privacy policy, contact: support@campool.app
+		`.trim(),
+		version: '1.0'
+	});
+});
+
+// Terms of Service endpoint
+app.get('/terms', (req, res) => {
+	res.json({
+		title: 'Terms of Service',
+		lastUpdated: new Date().toISOString(),
+		content: `
+Campool Terms of Service
+
+Last Updated: ${new Date().toLocaleDateString()}
+
+1. Acceptance of Terms
+By using Campool, you agree to these terms of service.
+
+2. Service Description
+Campool is a ride-sharing platform for students to share rides and reduce travel costs.
+
+3. User Responsibilities
+- You must be a valid student with university email
+- You are responsible for all rides you post or join
+- You must treat other users with respect
+
+4. Ride Sharing
+- Drivers are responsible for their vehicles and driving
+- Passengers are responsible for payment and timely arrival
+- Campool is a matching platform only, not responsible for ride execution
+
+5. Payments
+- Payments are handled directly between driver and passenger
+- Campool does not process payments
+- Any disputes must be resolved between parties
+
+6. Prohibited Activities
+- Posting false information
+- Harassment or inappropriate behavior
+- Using the service for illegal purposes
+
+7. Liability
+Campool is not liable for any accidents, damages, or disputes arising from ride-sharing.
+
+8. Contact
+For questions, contact: support@campool.app
+		`.trim(),
+		version: '1.0'
 	});
 });
 
@@ -191,7 +282,7 @@ app.use((req, res) => {
 	res.status(404).json({ error: 'Route not found' });
 });
 
-console.log('✅ Minimal server configured with auth and ride endpoints');
+console.log('✅ Minimal server configured with auth, ride, and legal endpoints');
 console.log('📋 Available endpoints:');
 console.log('   Auth:');
 console.log('   - POST /api/auth/request-otp');
@@ -202,6 +293,9 @@ console.log('   Rides:');
 console.log('   - GET /rides/search');
 console.log('   - POST /rides/create');
 console.log('   - GET /rides/:id');
+console.log('   Legal:');
+console.log('   - GET /privacy');
+console.log('   - GET /terms');
 console.log('   Diagnostics:');
 console.log('   - GET /health');
 console.log('   - GET /diagnostic');
