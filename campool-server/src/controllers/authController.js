@@ -5,6 +5,8 @@ const { isUniversityEmail, requireFields } = require('../utils/validators');
 const crypto = require('crypto');
 const { sendOtpEmail } = require('../utils/mailer');
 
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
+
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
 const SALT_ROUNDS = 10;
 const OTP_TTL_MS = 2 * 60 * 1000; // 2 minutes
@@ -64,7 +66,7 @@ async function requestOtp(req, res) {
         if (mongoose.connection.readyState === 0) {
             console.log('🔌 Connecting to MongoDB (OTP)...');
             try {
-                await connectWithRetry(process.env.MONGO_URI, 3);
+                await connectWithRetry(MONGO_URI, 3);
                 console.log('✅ MongoDB connected successfully');
             } catch (connectError) {
                 clearTimeout(responseTimeout);
@@ -253,7 +255,7 @@ async function verifyOtp(req, res) {
         if (mongoose.connection.readyState === 0) {
             console.log('Connecting to MongoDB for OTP verification...');
             try {
-                await connectWithRetry(process.env.MONGO_URI, 3);
+                await connectWithRetry(MONGO_URI, 3);
                 console.log('✅ MongoDB connected for verification');
             } catch (connectError) {
                 console.error('❌ MongoDB connection failed:', connectError);
@@ -312,7 +314,7 @@ async function signup(req, res) {
 		const mongoose = require('mongoose');
 		if (mongoose.connection.readyState === 0) {
 			try {
-				await connectWithRetry(process.env.MONGO_URI, 3);
+			await connectWithRetry(MONGO_URI, 3);
 			} catch (connectError) {
 				console.error('MongoDB connection failed:', connectError);
 				return res.status(500).json({ error: 'Database connection failed' });
@@ -454,7 +456,7 @@ async function createTestUser(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for test user creation...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -517,7 +519,7 @@ async function createSimpleTestUser(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for simple test user creation...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -580,7 +582,7 @@ async function createTestUsers(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for test users creation...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -669,7 +671,7 @@ async function createBulkUsers(req, res) {
         const mongoose = require('mongoose');
         if (mongoose.connection.readyState === 0) {
             try {
-                await mongoose.connect(process.env.MONGO_URI, {
+                await mongoose.connect(MONGO_URI, {
                     useNewUrlParser: true,
                     useUnifiedTopology: true,
                     serverSelectionTimeoutMS: 15000,

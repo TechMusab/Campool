@@ -2,9 +2,9 @@ require('dotenv').config();
 const { MongoClient } = require('mongodb');
 
 async function main() {
-	const mongoUri = process.env.MONGO_URI;
-	if (!mongoUri) {
-		console.error('MONGO_URI is not set. Aborting.');
+    const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+    if (!mongoUri) {
+        console.error('MONGO_URI/MONGODB_URI is not set. Aborting.');
 		process.exit(1);
 	}
 

@@ -3,11 +3,13 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
+
 const app = express();
 
 // Add error handling for missing environment variables
-if (!process.env.MONGO_URI) {
-	console.warn('WARNING: MONGO_URI environment variable is not set');
+if (!MONGO_URI) {
+    console.warn('WARNING: Neither MONGO_URI nor MONGODB_URI environment variables are set');
 }
 
 if (!process.env.JWT_SECRET) {
@@ -23,8 +25,6 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Database connection
-const MONGO_URI = process.env.MONGO_URI;
-
 async function connectDB(maxAttempts = 4) {
     let attempt = 0;
     let lastError;
@@ -34,6 +34,10 @@ async function connectDB(maxAttempts = 4) {
                 const delayMs = 500 * Math.pow(2, attempt - 1);
                 await new Promise(r => setTimeout(r, delayMs));
             }
+            if (!MONGO_URI) {
+                throw new Error('MongoDB connection string is not configured');
+            }
+
             console.log(`Attempting to connect to MongoDB (attempt ${attempt + 1}/${maxAttempts})...`);
             await mongoose.connect(MONGO_URI, {
                 serverSelectionTimeoutMS: 15000,
@@ -230,7 +234,7 @@ app.get('/diagnostic', (req, res) => {
 		timestamp: new Date().toISOString(),
 		environment: {
 			NODE_ENV: process.env.NODE_ENV || 'development',
-			hasMongoUri: !!process.env.MONGO_URI,
+			hasMongoUri: !!MONGO_URI,
 			hasJwtSecret: !!process.env.JWT_SECRET,
 			hasCorsOrigin: !!process.env.CORS_ORIGIN
 		},

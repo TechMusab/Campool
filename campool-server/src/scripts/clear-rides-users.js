@@ -4,9 +4,9 @@ const User = require('../models/User');
 const Ride = require('../models/Ride');
 
 async function main() {
-	const mongoUri = process.env.MONGO_URI;
+	const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 	if (!mongoUri) {
-		console.error('MONGO_URI is not set. Aborting.');
+		console.error('MONGO_URI/MONGODB_URI is not set. Aborting.');
 		process.exit(1);
 	}
 

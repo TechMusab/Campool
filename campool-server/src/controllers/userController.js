@@ -1,5 +1,7 @@
 const User = require('../models/User');
 
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
+
 // Get user profile
 async function getProfile(req, res) {
 	try {
@@ -8,7 +10,7 @@ async function getProfile(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for profile...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -59,7 +61,7 @@ async function updateProfile(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for profile update...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -111,7 +113,7 @@ async function getInbox(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for inbox...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -206,7 +208,7 @@ async function testMessage(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for test message...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -270,7 +272,7 @@ async function createMessage(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for message creation...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,

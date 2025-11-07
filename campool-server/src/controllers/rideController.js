@@ -1,6 +1,8 @@
 const Ride = require('../models/Ride');
 const User = require('../models/User');
 
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
+
 function isFutureDate(dateString, timeString) {
 	try {
 		const date = new Date(dateString);
@@ -27,7 +29,7 @@ async function createRide(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for ride creation...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -104,7 +106,7 @@ async function searchRides(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for ride search...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -176,7 +178,7 @@ async function getRideById(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for getRideById...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -213,7 +215,7 @@ async function testRideCreation(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for test ride creation...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -257,7 +259,7 @@ async function getRideMessages(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for ride messages...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -309,7 +311,7 @@ async function updateRideStatus(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for ride status update...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -372,7 +374,7 @@ async function joinRide(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for join ride...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -447,7 +449,7 @@ async function respondToJoinRequest(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for join response...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
@@ -516,7 +518,7 @@ async function getRideStatus(req, res) {
 		if (mongoose.connection.readyState === 0) {
 			console.log('Connecting to MongoDB for ride status...');
 			try {
-				await mongoose.connect(process.env.MONGO_URI, {
+			await mongoose.connect(MONGO_URI, {
 					useNewUrlParser: true,
 					useUnifiedTopology: true,
 					serverSelectionTimeoutMS: 15000,
