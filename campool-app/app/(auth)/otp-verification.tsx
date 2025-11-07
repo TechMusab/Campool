@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { verifyOtp } from '../../services/authApi';
+import { verifyOtp, requestOtp } from '../../services/authApi';
 
 export default function OtpVerificationScreen() {
   const { email } = useLocalSearchParams<{ email: string }>();
@@ -89,7 +89,6 @@ export default function OtpVerificationScreen() {
     setError('');
     
     try {
-      const { requestOtp } = await import('../../services/authApi');
       await requestOtp(email);
       setTimeLeft(600);
       setCanResend(false);

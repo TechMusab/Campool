@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Image, View, ActivityIndicator, Text } from 'react-native';
+import { Image, View, ActivityIndicator, Text, Platform } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -102,7 +102,8 @@ export default function RootLayout() {
     }
 
     // Add global error handlers for web
-    if (typeof window !== 'undefined') {
+    let removeWebListeners: (() => void) | undefined;
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
         console.error('Unhandled promise rejection:', event.reason);
         event.preventDefault(); // Prevent default crash behavior
@@ -114,6 +115,11 @@ export default function RootLayout() {
 
       window.addEventListener('error', handleUncaughtError);
       window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+      removeWebListeners = () => {
+        window.removeEventListener('error', handleUncaughtError);
+        window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      };
     }
 
     // Add global error handler for console
@@ -128,6 +134,9 @@ export default function RootLayout() {
 
     return () => {
       console.error = originalConsoleError;
+      if (removeWebListeners) {
+        removeWebListeners();
+      }
     };
   }, []);
 

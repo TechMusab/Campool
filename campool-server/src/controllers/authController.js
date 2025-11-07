@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { isUniversityEmail, requireFields } = require('../utils/validators');
 const crypto = require('crypto');
-const { sendOtpEmail } = require('../utils/mailer');
+const { sendOtpEmail, isSmtpConfigured } = require('../utils/mailer');
 
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 
@@ -214,18 +214,23 @@ async function requestOtp(req, res) {
         const responseTime = Date.now() - startTime;
         console.log(`✅ Response sent in ${responseTime}ms`);
         
-        // Send success response immediately
+        // Send success response immediately with delivery metadata
+        const smtpConfigured = isSmtpConfigured();
         res.json({ 
             success: true, 
             expiresInMs: OTP_TTL_MS,
-            message: 'OTP sent successfully'
+            message: smtpConfigured ? 'OTP sent successfully' : 'OTP generated; email delivery not configured',
+            emailDelivery: smtpConfigured ? 'attempted' : 'not_configured'
         });
 
         // Send email asynchronously AFTER response is sent
         console.log('📧 Sending OTP email (async)...');
-        sendOtpEmail(email, otp).catch(err => {
+        sendOtpEmail(email, otp).then(result => {
+            if (!result?.delivered) {
+                console.warn('⚠️  OTP email not delivered:', result?.reason);
+            }
+        }).catch(err => {
             console.error('⚠️  Email sending failed (non-blocking):', err.message);
-            // Email failure doesn't affect the response - OTP is already saved
         });
 
         console.log('=== OTP REQUEST SUCCESS ===\n');

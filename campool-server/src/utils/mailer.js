@@ -7,6 +7,10 @@ const SMTP_PASS = process.env.SMTP_PASS;
 const FROM_EMAIL = process.env.MAIL_FROM || 'no-reply@campool.app';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+function isSmtpConfigured() {
+    return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
+}
+
 let transporter;
 
 function getTransporter() {
@@ -19,7 +23,7 @@ function getTransporter() {
         console.log(`   From: ${FROM_EMAIL}`);
         
         // If no SMTP configuration, use a test transporter for development
-        if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+        if (!isSmtpConfigured()) {
             console.log('⚠️  No SMTP configuration found. Using development mode (OTPs will be logged to console).');
             transporter = nodemailer.createTransport({
                 host: 'smtp.ethereal.email',
@@ -59,14 +63,14 @@ async function sendOtpEmail(to, otp) {
     `;
 
     // In development mode without proper SMTP, just log the OTP
-    if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+    if (!isSmtpConfigured()) {
         console.log('\n📧 ===== OTP EMAIL (NO SMTP CONFIGURED) =====');
         console.log(`📧 To: ${to}`);
         console.log(`📧 Subject: Your Campool verification code`);
         console.log(`📧 OTP Code: ${otp}`);
         console.log(`📧 Expires in: 2 minutes`);
         console.log('📧 ===========================================\n');
-        return Promise.resolve();
+        return { delivered: false, reason: 'smtp_not_configured' };
     }
 
     try {
@@ -97,6 +101,8 @@ async function sendOtpEmail(to, otp) {
         
         await sendEmailWithTimeout;
         
+        return { delivered: true };
+
     } catch (error) {
         console.error('❌ Failed to send OTP email:');
         console.error(`   Error: ${error.message}`);
@@ -109,10 +115,9 @@ async function sendOtpEmail(to, otp) {
         console.log(`📧 OTP Code: ${otp}`);
         console.log(`📧 Expires in: 2 minutes`);
         console.log('📧 ===========================================\n');
-        
-        // Don't re-throw - email failure should not affect the API response
-        // The OTP is already saved and valid
+
+        return { delivered: false, reason: error.message || 'smtp_error' };
     }
 }
 
-module.exports = { sendOtpEmail };
+module.exports = { sendOtpEmail, isSmtpConfigured };
